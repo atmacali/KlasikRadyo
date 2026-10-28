@@ -55,11 +55,15 @@ class MainActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        wasCharging = isDeviceCharging()
+        wasCharging = isPowerConnected()
         if (intent?.action == ACTION_POWER_CONNECTED || wasCharging) {
             pendingPowerAction = START_RADIO_SCRIPT
             window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         }
+        ContextCompat.startForegroundService(
+            this,
+            Intent(this, PlaybackService::class.java).setAction(ACTION_START_CHARGING_MONITOR)
+        )
 
         // Android 13+ bildirim izni talebi
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -114,6 +118,7 @@ class MainActivity : Activity() {
         when (intent?.action) {
             ACTION_POWER_CONNECTED -> handlePowerConnected()
             ACTION_POWER_DISCONNECTED -> handlePowerDisconnected()
+            ACTION_OPEN_FROM_MONITOR -> if (isPowerConnected()) handlePowerConnected()
         }
     }
 
@@ -122,7 +127,7 @@ class MainActivity : Activity() {
         synchronized(foregroundActivityLock) {
             foregroundActivity = this
         }
-        val charging = isDeviceCharging()
+        val charging = isPowerConnected()
         if (charging != wasCharging) {
             wasCharging = charging
             if (charging) handlePowerConnected() else handlePowerDisconnected()
@@ -154,14 +159,16 @@ class MainActivity : Activity() {
         super.onPause()
     }
 
-    private fun isDeviceCharging(): Boolean {
-        val batteryManager = getSystemService(BatteryManager::class.java)
-        return batteryManager?.isCharging == true
+    private fun isPowerConnected(): Boolean {
+        val batteryState = registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+        val pluggedStatus = batteryState?.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0)
+        return pluggedStatus?.let { it != 0 }
+            ?: (getSystemService(BatteryManager::class.java)?.isCharging == true)
     }
 
     private fun updateKeepScreenOn() {
         if (!::webView.isInitialized) return
-        if (isDeviceCharging() || mediaController?.isPlaying == true) {
+        if (wasCharging || mediaController?.isPlaying == true) {
             window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         } else {
             window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
@@ -171,7 +178,6 @@ class MainActivity : Activity() {
     private fun handlePowerConnected() {
         wasCharging = true
         window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        getSystemService(android.app.NotificationManager::class.java).cancel(POWER_NOTIFICATION_ID)
         pendingPowerAction = START_RADIO_SCRIPT
         runPendingPowerAction()
     }
@@ -186,7 +192,6 @@ class MainActivity : Activity() {
         }
         pendingPowerAction = STOP_RADIO_SCRIPT
         runPendingPowerAction()
-        stopService(Intent(this, PlaybackService::class.java))
         finish()
     }
 
@@ -261,6 +266,7 @@ class MainActivity : Activity() {
             getSharedPreferences(PLAYBACK_PREFERENCES, MODE_PRIVATE)
                 .edit()
                 .putString(SELECTED_STATION_KEY, stationId)
+                .putString(STATION_PLAYLIST_KEY, stationsJson)
                 .apply()
 
             if (startPlayback || oldPlaybackState != Player.STATE_IDLE) {
@@ -340,6 +346,7 @@ class MainActivity : Activity() {
     companion object {
         private const val PLAYBACK_PREFERENCES = "radio_playback"
         private const val SELECTED_STATION_KEY = "selected_station_id"
+        private const val STATION_PLAYLIST_KEY = "station_playlist_json"
 
         private val foregroundActivityLock = Any()
         @Volatile
@@ -370,9 +377,10 @@ class MainActivity : Activity() {
 
         const val ACTION_POWER_CONNECTED = "com.retroradyo.app.POWER_CONNECTED"
         const val ACTION_POWER_DISCONNECTED = "com.retroradyo.app.POWER_DISCONNECTED"
+        const val ACTION_OPEN_FROM_MONITOR = "com.retroradyo.app.OPEN_FROM_MONITOR"
+        const val ACTION_START_CHARGING_MONITOR = "com.retroradyo.app.START_CHARGING_MONITOR"
 
         private const val START_RADIO_SCRIPT = "startRadioForPower()"
         private const val STOP_RADIO_SCRIPT = "stopRadio()"
-        private const val POWER_NOTIFICATION_ID = 1001
     }
 }

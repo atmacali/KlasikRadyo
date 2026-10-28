@@ -1,5 +1,7 @@
 <resources>
-    <string name="power_notification_channel">Şarj durumu</string>
-    <string name="power_connected_title">Retro Radyo şarj bağlantısını algıladı</string>
-    <string name="power_connected_message">Radyoyu başlatmak için dokunun.</string>
+    <string name="monitor_notification_channel">Radyo ve şarj izleme</string>
+    <string name="monitor_notification_title">Retro Radyo çalışıyor</string>
+    <string name="monitor_notification_waiting">Şarj bağlantısı bekleniyor. Açmak için dokunun.</string>
+    <string name="monitor_notification_charging">Şarj bağlı; radyo başlatılıyor.</string>
+    <string name="monitor_notification_playing">Radyo çalıyor; açmak için dokunun.</string>
 </resources>
