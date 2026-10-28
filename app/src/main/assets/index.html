@@ -39,7 +39,12 @@
             font-variant-numeric: tabular-nums;
         }
         .now-playing {
+            display: block;
+            width: 100%;
             min-height: 24px;
+            padding: 0;
+            border: 0;
+            background: transparent;
             overflow: hidden;
             color: #c1cad5;
             font-size: 15px;
@@ -104,6 +109,7 @@
         .gesture-hint { margin-top: 12px; color: #7f8995; font-size: 11px; }
         .toolbar { display: flex; gap: 10px; margin-bottom: 25px; }
         .restore-row { margin: -12px 0 25px; }
+        .screensaver-toggle { width: 100%; margin: 0 0 25px; }
         .btn {
             min-height: 48px;
             padding: 12px 16px;
@@ -198,6 +204,38 @@
         }
         .modal-actions { display: flex; gap: 9px; }
         .modal-actions .btn { flex: 1; }
+        body.screensaver {
+            min-height: 100vh;
+            min-height: 100dvh;
+            padding-top: max(24px, env(safe-area-inset-top));
+            padding-bottom: max(24px, env(safe-area-inset-bottom));
+        }
+        .screensaver .app {
+            display: flex;
+            min-height: calc(100vh - max(24px, env(safe-area-inset-top)) - max(24px, env(safe-area-inset-bottom)));
+            min-height: calc(100dvh - max(24px, env(safe-area-inset-top)) - max(24px, env(safe-area-inset-bottom)));
+            flex-direction: column;
+            justify-content: center;
+        }
+        .screensaver .app-title,
+        .screensaver .status,
+        .screensaver .gesture-hint,
+        .screensaver .screensaver-toggle,
+        .screensaver .section-title,
+        .screensaver .station-list,
+        .screensaver .toolbar,
+        .screensaver .restore-row { display: none; }
+        .screensaver .header { margin: 0 0 28px; }
+        .screensaver .clock { margin: 0 0 8px; }
+        .screensaver .now-playing {
+            min-height: 36px;
+            padding: 8px 4px;
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .screensaver .knobs { margin: 0; }
+        .screensaver .knob { box-shadow: none; }
+        .screensaver .knob::before { box-shadow: none; }
         @media (max-height: 680px) {
             body { padding-top: max(14px, env(safe-area-inset-top)); }
             .header { margin-bottom: 16px; }
@@ -233,6 +271,7 @@
             </div>
         </section>
 
+        <button class="btn screensaver-toggle" id="screensaverToggle" type="button" onclick="toggleScreensaver(true)">AMOLED EKRAN KORUYUCU</button>
         <h1 class="section-title">İSTASYONLAR</h1>
         <div class="station-list" id="stationList"></div>
         <div class="toolbar">
@@ -358,6 +397,7 @@
         let isPlaying = false;
         let volume = 70;
         let editingStationId = null;
+        let screensaverActive = false;
 
         function loadSelectedStationId() {
             try {
@@ -419,7 +459,21 @@
             volumeKnob.style.setProperty('--rotation', `${-135 + volumeProgress * 270}deg`);
             volumeKnob.style.setProperty('--arc', `${volumeProgress * 270}deg`);
             volumeKnob.setAttribute('aria-label', `Ses seviyesi: yüzde ${volume}. Döndürerek ayarla, basarak oynat veya duraklat.`);
+            document.body.classList.toggle('screensaver', screensaverActive);
+            const stationName = document.getElementById('nowPlaying');
+            stationName.setAttribute('role', screensaverActive ? 'button' : 'status');
+            stationName.tabIndex = screensaverActive ? 0 : -1;
+            stationName.setAttribute(
+                'aria-label',
+                screensaverActive ? 'Ekran koruyucudan çık' : (station ? `Şu anki kanal: ${station.name}` : 'Bir istasyon seç')
+            );
+            stationName.title = screensaverActive ? 'Ekran koruyucudan çıkmak için dokunun' : '';
             renderStations();
+        }
+
+        function toggleScreensaver(active = !screensaverActive) {
+            screensaverActive = Boolean(active);
+            updateDisplay();
         }
 
         function renderStations() {
@@ -648,10 +702,10 @@
             updateDisplay();
         }
 
-        function setupKnob(element, onRotate, getThreshold = () => 18) {
+        function setupKnob(element, onRotate, getThreshold = () => 18, resetAfterStep = false) {
             let lastAngle = null;
             let accumulated = 0;
-            let dragged = false;
+            let gestureMoved = false;
             let suppressClick = false;
 
             element.addEventListener('pointerdown', event => {
@@ -674,19 +728,25 @@
                 ) * 180 / Math.PI;
                 const delta = ((angle - lastAngle + 540) % 360) - 180;
                 lastAngle = angle;
+                if (Math.abs(delta) >= 4) gestureMoved = true;
                 accumulated += delta;
                 const threshold = getThreshold();
-                const steps = Math.trunc(accumulated / threshold);
-                if (steps) {
-                    dragged = true;
-                    accumulated -= steps * threshold;
-                    onRotate(steps);
+                if (resetAfterStep && Math.abs(accumulated) >= threshold) {
+                    onRotate(Math.sign(accumulated));
+                    accumulated = 0;
+                } else {
+                    const steps = Math.trunc(accumulated / threshold);
+                    if (steps) {
+                        accumulated -= steps * threshold;
+                        onRotate(steps);
+                    }
                 }
             });
-            const endDrag = () => {
-                if (dragged) suppressClick = true;
+            const endDrag = event => {
+                suppressClick = event.type === 'pointerup' && gestureMoved;
                 lastAngle = null;
                 accumulated = 0;
+                gestureMoved = false;
             };
             element.addEventListener('pointerup', endDrag);
             element.addEventListener('pointercancel', endDrag);
@@ -709,6 +769,16 @@
             });
         }
 
+        document.getElementById('nowPlaying').addEventListener('click', () => {
+            if (screensaverActive) toggleScreensaver(false);
+        });
+        document.getElementById('nowPlaying').addEventListener('keydown', event => {
+            if (screensaverActive && (event.key === 'Enter' || event.key === ' ')) {
+                event.preventDefault();
+                toggleScreensaver(false);
+            }
+        });
+
         function deleteStation(id) {
             const wasSelected = currentStationId === id;
             const wasPlaying = wasSelected && isPlaying;
@@ -730,7 +800,8 @@
         setupKnob(
             document.getElementById('stationKnob'),
             changeStation,
-            () => 360 / Math.max(sortedStations().length, 1)
+            () => 181,
+            true
         );
         if (window.AndroidBridge) window.AndroidBridge.setVolume(volume / 100);
         const savedStationId = loadSelectedStationId();

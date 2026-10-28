@@ -18,6 +18,8 @@ Android Studio'da bu klasörü açıp Gradle senkronizasyonunu tamamla. Ardında
 - Yayın URL'si ile özel istasyon ekleme
 - Her kanalı düzenleme, silme ve varsayılanları geri yükleme
 - İstasyon ekleme, durdurma ve varsayılanları geri yükleme düğmeleri listenin en altında
+- “AMOLED EKRAN KORUYUCU” düğmesiyle saat, kanal adı ve iki çevirmeli kontrol dışında kalan arayüzü gizleme; çıkmak için kanal adına dokunma
+- Kanal düğmesinde her kanal değişimi için 181°'den fazla bilinçli döndürme; eşik sonrası hareket sayacı sıfırlanır
 - Favori işaretleme (kanal düzenlenirken korunur)
 - Bluetooth kulaklık/medya kontrolleriyle oynat/duraklat ve ileri/geri kanal değiştirme
 - Uygulama ilk açıldığında başlayan, sürekli bildirim göstererek şarj bağlantısını izleyen foreground service
@@ -27,9 +29,9 @@ Android Studio'da bu klasörü açıp Gradle senkronizasyonunu tamamla. Ardında
 - Reklam/analitik SDK'sı yok
 
 İzleme servisi uygulamayı ilk kez açtığında başlar ve fişi çekince radyo uygulama ekranı kapansa da servisi ve
-kalıcı, sessiz bildirimi çalışır bırakır. Bu sayede servis şarj olayını alıp seçili kanalı arka planda başlatabilir;
-bildirime dokunmak radyo ekranını açar. Android 10 ve üzeri uygulamanın şarj olayıyla ekranı kendi kendine
-açmasını kısıtlar; radyo başlatma ile tam ekranı açma ayrı şeylerdir, otomatik ekran açılması garanti edilemez.
+kalıcı, sessiz bildirimi çalışır bırakır. Uygulama ekrandayken şarjı takmak radyoyu başlatır. Uygulama arka plandaysa
+servis yayın başlatabilir; bildirime dokunmak radyo ekranını açar. Android 10 ve üzeri arka plandan aktivite açılmasını
+kısıtlar: şarja takıldığında ekranın kendiliğinden açılması garanti edilemez ve uygulama bu kısıtlamayı aşmaya çalışmaz.
 
 Bildirim görünürlüğü için **Ayarlar > Uygulamalar > Uygulamaları yönet > Retro Radyo > Bildirimler** iznini aç.
 Xiaomi 13'te ayrıca **Ayarlar > Uygulamalar > İzinler > Arka planda otomatik başlatma > Retro Radyo** seçeneğini
