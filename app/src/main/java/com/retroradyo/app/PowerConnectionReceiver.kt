@@ -38,13 +38,9 @@ class PowerConnectionReceiver : BroadcastReceiver() {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
         }
 
-        if (MainActivity.isVisibleToUser) {
-            try {
-                context.startActivity(activityIntent)
-                return
-            } catch (e: SecurityException) {
-                e.printStackTrace()
-            }
+        if (MainActivity.dispatchPowerActionToVisibleActivity(MainActivity.ACTION_POWER_CONNECTED)) {
+            NotificationManagerCompat.from(context).cancel(POWER_NOTIFICATION_ID)
+            return
         }
         showOpenAppNotification(context, activityIntent)
     }
@@ -52,18 +48,8 @@ class PowerConnectionReceiver : BroadcastReceiver() {
     private fun handlePowerDisconnected(context: Context) {
         NotificationManagerCompat.from(context).cancel(POWER_NOTIFICATION_ID)
 
-        if (MainActivity.isVisibleToUser) {
-            try {
-                context.startActivity(
-                    Intent(context, MainActivity::class.java).apply {
-                        action = MainActivity.ACTION_POWER_DISCONNECTED
-                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-                    }
-                )
-                return
-            } catch (e: SecurityException) {
-                e.printStackTrace()
-            }
+        if (MainActivity.dispatchPowerActionToVisibleActivity(MainActivity.ACTION_POWER_DISCONNECTED)) {
+            return
         }
         context.stopService(Intent(context, PlaybackService::class.java))
         context.getSystemService(ActivityManager::class.java).appTasks.forEach { task ->
