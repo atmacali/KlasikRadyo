@@ -11,18 +11,22 @@ class PlaybackService : MediaSessionService() {
 
     override fun onCreate() {
         super.onCreate()
-        val player = ExoPlayer.Builder(this)
-            .setAudioAttributes(
-                AudioAttributes.Builder()
-                    .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
-                    .setUsage(C.USAGE_MEDIA)
-                    .build(),
-                true
-            )
-            .setHandleAudioBecomingNoisy(true)
-            .build()
+        try {
+            val player = ExoPlayer.Builder(this)
+                .setAudioAttributes(
+                    AudioAttributes.Builder()
+                        .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
+                        .setUsage(C.USAGE_MEDIA)
+                        .build(),
+                    true
+                )
+                .setHandleAudioBecomingNoisy(true)
+                .build()
 
-        mediaSession = MediaSession.Builder(this, player).build()
+            mediaSession = MediaSession.Builder(this, player).build()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? {
@@ -30,10 +34,14 @@ class PlaybackService : MediaSessionService() {
     }
 
     override fun onDestroy() {
-        mediaSession?.run {
-            player.release()
-            release()
-            mediaSession = null
+        try {
+            mediaSession?.run {
+                player.release()
+                release()
+                mediaSession = null
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
         super.onDestroy()
     }
