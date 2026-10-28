@@ -21,7 +21,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var webView: WebView
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate()
+        super.onCreate(savedInstanceState)
 
         val serviceIntent = Intent(this, PlaybackService::class.java)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
