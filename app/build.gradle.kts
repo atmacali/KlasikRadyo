@@ -3,6 +3,11 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 
+val releaseKeystorePath = providers.environmentVariable("ANDROID_KEYSTORE_PATH")
+val releaseKeystorePassword = providers.environmentVariable("ANDROID_KEYSTORE_PASSWORD")
+val releaseKeyAlias = providers.environmentVariable("ANDROID_KEY_ALIAS")
+val releaseKeyPassword = providers.environmentVariable("ANDROID_KEY_PASSWORD")
+
 android {
     namespace = "com.retroradyo.app"
     compileSdk = 35
@@ -11,8 +16,24 @@ android {
         applicationId = "com.retroradyo.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 2
+        versionName = "1.1"
+    }
+
+    signingConfigs {
+        create("release") {
+            releaseKeystorePath.orNull?.let { storeFile = file(it) }
+            releaseKeystorePassword.orNull?.let { storePassword = it }
+            releaseKeyAlias.orNull?.let { keyAlias = it }
+            releaseKeyPassword.orNull?.let { keyPassword = it }
+        }
+    }
+
+    buildTypes {
+        getByName("release") {
+            signingConfig = signingConfigs.getByName("release")
+            isMinifyEnabled = false
+        }
     }
 
     compileOptions {

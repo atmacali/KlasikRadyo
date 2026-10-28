@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <meta name="theme-color" content="#101216">
+    <meta name="theme-color" content="#000000">
     <title>Retro Radyo</title>
     <style>
         :root {
             color-scheme: dark;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: #101216;
+            background: #000;
             color: #f4f4f5;
             font-synthesis: none;
         }
@@ -21,7 +21,7 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            background: radial-gradient(ellipse at 50% 10%, #202630 0, #101216 55%);
+            background: #000;
         }
         button { font: inherit; color: inherit; }
         .app { width: min(100%, 460px); }
@@ -98,7 +98,6 @@
             transform: translateX(-50%) rotate(var(--rotation));
             transform-origin: 50% var(--knob-pivot);
         }
-        .knob:active { filter: brightness(1.13); }
         .knob:focus-visible { outline: 3px solid #60a5fa; outline-offset: 4px; }
         .knob-value { font-size: 21px; font-weight: 700; font-variant-numeric: tabular-nums; }
         .knob-hint { margin-top: 4px; color: #aab4c0; font-size: 10px; letter-spacing: 1px; }
@@ -234,6 +233,8 @@
             </div>
         </section>
 
+        <h1 class="section-title">İSTASYONLAR</h1>
+        <div class="station-list" id="stationList"></div>
         <div class="toolbar">
             <button class="btn btn-primary" type="button" onclick="openModal()">＋ İSTASYON EKLE</button>
             <button class="btn btn-stop" type="button" onclick="stopRadio()">DURDUR</button>
@@ -241,9 +242,6 @@
         <div class="restore-row">
             <button class="btn" type="button" onclick="openRestoreModal()">VARSAYILANLARI GERİ YÜKLE</button>
         </div>
-
-        <h1 class="section-title">İSTASYONLAR</h1>
-        <div class="station-list" id="stationList"></div>
     </main>
 
     <div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
@@ -394,7 +392,7 @@
         function updateClock() {
             document.getElementById('clock').textContent = new Date().toTimeString().slice(0, 5);
         }
-        setInterval(updateClock, 1000);
+        setInterval(updateClock, 60000);
         updateClock();
 
         function updateDisplay() {
