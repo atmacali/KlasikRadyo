@@ -20,15 +20,25 @@ Android Studio'da bu klasörü açıp Gradle senkronizasyonunu tamamla. Ardında
 - Koyu temalı, dokunmatik radyo ekranı
 - Örnek istasyonlar
 - Yayın URL'si ile özel istasyon ekleme
-- Favori işaretleme
-- Şarja takıldığında görünür uygulamada son seçili istasyonu otomatik başlatma ve ekranı açık tutma
-- Şarj kesildiğinde yayını durdurup uygulama görevini kapatma
+- Her kanalı düzenleme, silme ve varsayılanları geri yükleme
+- Favori işaretleme (kanal düzenlenirken korunur)
+- Bluetooth kulaklık/medya kontrolleriyle oynat/duraklat ve ileri/geri kanal değiştirme
+- Şarja takıldığında son seçili istasyonu otomatik başlatma ve uygulama görünürken ekranı açık tutma
+- Radyo çalarken arka planda şarj olaylarını izleme; şarj kesildiğinde yayını durdurup uygulama görevini kapatma
 - İlk prototipte uygulama açıkken yayın çalma
 - Reklam/analitik SDK'sı yok
 
-Android'in arka planda uygulama açma kısıtlamaları nedeniyle uygulama ekranda değilken şarja takıldığında
-otomatik açılış garanti edilemez. Bu durumda Android bildirimi gösterilir; radyoyu başlatmak için bildirime
-dokunmak gerekir. Bunun çalışması için uygulama bildirimlerine izin verilmelidir.
+Uygulama ekrandayken şarj bağlanırsa seçili kanal otomatik başlar; bağlantı kesilince yayın durur ve uygulama
+kapanır. Radyo arka planda çalarken medya servisi de şarj bağlantısını izler; bağlantıda son yayını sürdürür,
+bağlantı kesilince durdurup uygulama görevini kapatır.
 
-Not: Hazır istasyonların yayın adresleri zaman içinde değişebilir; bir istasyon açılmazsa başka bir yayın URL'si eklenebilir.
-Bu ilk prototip test amaçlıdır; ekran kapalıyken kesintisiz çalma ve telefon açılışında otomatik başlatma henüz tamamlanmış özellikler değildir. Bunlar sonraki sürümde Android medya servisi ve Xiaomi otomatik başlatma izinleriyle eklenmelidir.
+Android 8 ve üzeri sürümlerde şarj olayları, uygulama kapalıyken manifest alıcısına her zaman iletilmez;
+Android 10 ve üzeri sürümlerde arka plandan uygulama ekranı açmak da kısıtlıdır. Bu yüzden uygulama ve medya
+servisi çalışmıyorken şarja takınca otomatik açılma garanti edilemez. Uygulama arka planda ama medya servisi
+çalışıyorsa bildirim görünür; radyoyu açmak için bildirime dokunun. Bildirim için **Ayarlar > Uygulamalar >
+Retro Radyo > Bildirimler** iznini açın. Üreticiye özgü arka planda açılma ayarları yardımcı olabilir, ancak
+Android bunları garanti etmez.
+
+Not: Hazır istasyonların yayın adresleri zaman içinde değişebilir; açılmayan bir kanal düzenlenebilir, silinebilir
+veya varsayılanlar geri yüklenebilir. Ekran açık kalma yalnızca uygulama görünür durumdayken geçerlidir; telefon
+açılışında uygulamayı otomatik başlatma desteklenmez.
