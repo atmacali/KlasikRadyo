@@ -8,15 +8,27 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import android.os.SystemClock
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 
 class PowerConnectionReceiver : BroadcastReceiver() {
+    internal var playbackService: PlaybackService? = null
+
     override fun onReceive(context: Context, intent: Intent) {
-        when (intent.action) {
-            Intent.ACTION_POWER_CONNECTED -> handlePowerConnected(context)
-            Intent.ACTION_POWER_DISCONNECTED -> handlePowerDisconnected(context)
+        val action = intent.action ?: return
+        if (!shouldHandle(action)) return
+
+        when (action) {
+            Intent.ACTION_POWER_CONNECTED -> {
+                (playbackService ?: (context as? PlaybackService))?.resumeForPowerConnection()
+                handlePowerConnected(context)
+            }
+            Intent.ACTION_POWER_DISCONNECTED -> {
+                (playbackService ?: (context as? PlaybackService))?.stopForPowerDisconnection()
+                handlePowerDisconnected(context)
+            }
         }
     }
 
@@ -109,5 +121,20 @@ class PowerConnectionReceiver : BroadcastReceiver() {
     private companion object {
         const val POWER_CHANNEL_ID = "power_connection"
         const val POWER_NOTIFICATION_ID = 1001
+        private const val DUPLICATE_EVENT_WINDOW_MS = 1_000L
+
+        private var lastAction: String? = null
+        private var lastEventTime = 0L
+
+        @Synchronized
+        fun shouldHandle(action: String): Boolean {
+            val now = SystemClock.elapsedRealtime()
+            if (action == lastAction && now - lastEventTime < DUPLICATE_EVENT_WINDOW_MS) {
+                return false
+            }
+            lastAction = action
+            lastEventTime = now
+            return true
+        }
     }
 }

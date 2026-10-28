@@ -104,6 +104,7 @@
         .knob-hint { margin-top: 4px; color: #aab4c0; font-size: 10px; letter-spacing: 1px; }
         .gesture-hint { margin-top: 12px; color: #7f8995; font-size: 11px; }
         .toolbar { display: flex; gap: 10px; margin-bottom: 25px; }
+        .restore-row { margin: -12px 0 25px; }
         .btn {
             min-height: 48px;
             padding: 12px 16px;
@@ -136,6 +137,7 @@
             background: #191d23;
         }
         .station-card.selected { border-color: #438d70; background: #1d2927; }
+        .station-actions { display: flex; flex: 0 0 auto; gap: 6px; }
         .station-select {
             flex: 1;
             min-width: 0;
@@ -226,7 +228,7 @@
             <div class="knob-group">
                 <span class="knob-label">KANAL</span>
                 <button class="knob" id="stationKnob" type="button" aria-label="Kanal seçici. Döndürerek kanal seç, basarak oynat veya duraklat." title="Döndür: kanal · Bas: oynat/duraklat">
-                    <span><span class="knob-value" id="stationValue">01/08</span><span class="knob-hint">KANAL</span></span>
+                    <span><span class="knob-value" id="stationValue">01/12</span><span class="knob-hint">KANAL</span></span>
                 </button>
                 <div class="gesture-hint">Döndür: kanal · Bas: oynat / duraklat</div>
             </div>
@@ -235,6 +237,9 @@
         <div class="toolbar">
             <button class="btn btn-primary" type="button" onclick="openModal()">＋ İSTASYON EKLE</button>
             <button class="btn btn-stop" type="button" onclick="stopRadio()">DURDUR</button>
+        </div>
+        <div class="restore-row">
+            <button class="btn" type="button" onclick="openRestoreModal()">VARSAYILANLARI GERİ YÜKLE</button>
         </div>
 
         <h1 class="section-title">İSTASYONLAR</h1>
@@ -247,28 +252,38 @@
             <input type="text" id="newTitle" class="input-field" placeholder="İstasyon adı" aria-label="İstasyon adı">
             <input type="url" id="newUrl" class="input-field" placeholder="Yayın adresi (http/https)" aria-label="Yayın adresi">
             <div class="modal-actions">
-                <button class="btn btn-primary" type="button" onclick="addCustomStation()">Kaydet</button>
+                <button class="btn btn-primary" type="button" onclick="saveStation()">Kaydet</button>
                 <button class="btn" type="button" onclick="closeModal()">İptal</button>
+            </div>
+        </div>
+    </div>
+    <div class="modal" id="restoreModal" role="dialog" aria-modal="true" aria-labelledby="restoreTitle">
+        <div class="modal-content">
+            <h2 id="restoreTitle">Varsayılan kanalları geri yükle</h2>
+            <p>12 varsayılan kanal yeniden eklenecek ve düzenlenen varsayılanlar başlangıç bilgilerine dönecek. Özel kanallarınız ve favorileriniz korunacak.</p>
+            <div class="modal-actions">
+                <button class="btn btn-primary" type="button" onclick="restoreDefaults()">Geri yükle</button>
+                <button class="btn" type="button" onclick="closeRestoreModal()">İptal</button>
             </div>
         </div>
     </div>
 
     <script>
         const stationListVersionKey = 'retro_stations_version';
-        const stationListVersion = '2';
+        const stationListVersion = '3';
         const defaultStations = [
-            { id: '1', name: 'Radyo Fenomen 100.4 FM', url: 'https://live.radyofenomen.com/fenomen/128/icecast.audio', fav: false },
-            { id: '2', name: 'Süper FM 90.8', url: 'https://25593.live.streamtheworld.com:443/SUPER_FM.mp3', fav: false },
-            { id: '3', name: 'Radyo 7', url: 'http://46.20.3.251/stream/169/', fav: false },
-            { id: '4', name: 'Best FM', url: 'http://46.20.7.126/;stream.mp3', fav: false },
-            { id: '5', name: 'JoyTurk FM 89.0', url: 'https://25493.live.streamtheworld.com:443/JOY_TURKAAC.aac', fav: false },
-            { id: '6', name: 'Süper FM', url: 'https://25633.live.streamtheworld.com:443/SUPER_FM128AAC.aac', fav: false },
-            { id: '7', name: '88.6 Istanbul FM', url: 'http://46.20.4.50:9300', fav: false },
-            { id: '8', name: 'Pal Nostalji FM 99.2', url: 'http://shoutcast.radyogrup.com:1010/', fav: false },
-            { id: '9', name: 'SlowTürk', url: 'https://radyo.duhnet.tv/ak_dtvh_slowturk', fav: false },
-            { id: '10', name: 'Show Radyo', url: 'https://showradyo.radyotvonline.net/showradyoaac', fav: false },
-            { id: '11', name: 'TRT FM', url: 'https://trt.radyotvonline.net/trtfm', fav: false },
-            { id: '12', name: 'Power Türk Taptaze', url: 'https://listen.powerapp.com.tr/powerturktaptaze/mpeg/icecast.audio', fav: false }
+            { id: '1', defaultKey: '1', name: 'Radyo Fenomen 100.4 FM', url: 'https://live.radyofenomen.com/fenomen/128/icecast.audio', fav: false },
+            { id: '2', defaultKey: '2', name: 'Süper FM 90.8', url: 'https://25593.live.streamtheworld.com:443/SUPER_FM.mp3', fav: false },
+            { id: '3', defaultKey: '3', name: 'Radyo 7', url: 'http://46.20.3.251/stream/169/', fav: false },
+            { id: '4', defaultKey: '4', name: 'Best FM', url: 'http://46.20.7.126/;stream.mp3', fav: false },
+            { id: '5', defaultKey: '5', name: 'JoyTurk FM 89.0', url: 'https://25493.live.streamtheworld.com:443/JOY_TURKAAC.aac', fav: false },
+            { id: '6', defaultKey: '6', name: 'Süper FM', url: 'https://25633.live.streamtheworld.com:443/SUPER_FM128AAC.aac', fav: false },
+            { id: '7', defaultKey: '7', name: '88.6 Istanbul FM', url: 'http://46.20.4.50:9300', fav: false },
+            { id: '8', defaultKey: '8', name: 'Pal Nostalji FM 99.2', url: 'http://shoutcast.radyogrup.com:1010/', fav: false },
+            { id: '9', defaultKey: '9', name: 'SlowTürk', url: 'https://radyo.duhnet.tv/ak_dtvh_slowturk', fav: false },
+            { id: '10', defaultKey: '10', name: 'Show Radyo', url: 'https://showradyo.radyotvonline.net/showradyoaac', fav: false },
+            { id: '11', defaultKey: '11', name: 'TRT FM', url: 'https://trt.radyotvonline.net/trtfm', fav: false },
+            { id: '12', defaultKey: '12', name: 'Power Türk Taptaze', url: 'https://listen.powerapp.com.tr/powerturktaptaze/mpeg/icecast.audio', fav: false }
         ];
 
         const previousDefaultStations = [
@@ -289,6 +304,14 @@
             } catch {}
         }
 
+        function defaultKeyForStation(station) {
+            if (station.defaultKey && defaultStations.some(item => item.defaultKey === station.defaultKey)) {
+                return station.defaultKey;
+            }
+            const exactDefault = defaultStations.find(item => item.id === station.id && item.url === station.url);
+            return exactDefault ? exactDefault.defaultKey : null;
+        }
+
         function loadStations() {
             try {
                 const rawSaved = localStorage.getItem('retro_stations');
@@ -305,11 +328,15 @@
                     station
                 ]));
                 const retainedStations = [];
-                const previousFavorites = new Set();
+                const migratedDefaults = new Map();
                 saved.forEach(station => {
+                    const defaultKey = defaultKeyForStation(station);
                     const previousDefault = previousDefaults.get(`${station.id}\u0000${station.url}`);
-                    if (previousDefault) {
-                        if (station.fav) previousFavorites.add(previousDefault.name);
+                    if (defaultKey) {
+                        migratedDefaults.set(defaultKey, station);
+                    } else if (previousDefault) {
+                        const matchingDefault = defaultStations.find(item => item.name === previousDefault.name);
+                        if (matchingDefault) migratedDefaults.set(matchingDefault.defaultKey, station);
                     } else {
                         retainedStations.push(station);
                     }
@@ -317,7 +344,7 @@
                 const migratedStations = [
                     ...defaultStations.map(station => ({
                         ...station,
-                        fav: previousFavorites.has(station.name)
+                        fav: Boolean(migratedDefaults.get(station.defaultKey)?.fav)
                     })),
                     ...retainedStations
                 ];
@@ -332,9 +359,14 @@
         let currentStationId = null;
         let isPlaying = false;
         let volume = 70;
+        let editingStationId = null;
 
         function loadSelectedStationId() {
             try {
+                if (window.AndroidBridge && typeof window.AndroidBridge.getSelectedStationId === 'function') {
+                    const nativeStationId = window.AndroidBridge.getSelectedStationId();
+                    if (nativeStationId) return nativeStationId;
+                }
                 return localStorage.getItem('retro_selected_station');
             } catch {
                 return null;
@@ -414,16 +446,25 @@
                 favoriteButton.setAttribute('aria-pressed', String(Boolean(station.fav)));
                 favoriteButton.addEventListener('click', () => toggleFav(station.id));
 
-                card.append(selectButton, favoriteButton);
-                if (!defaultStations.some(defaultStation => defaultStation.id === station.id)) {
-                    const deleteButton = document.createElement('button');
-                    deleteButton.className = 'icon-btn';
-                    deleteButton.type = 'button';
-                    deleteButton.textContent = '×';
-                    deleteButton.setAttribute('aria-label', `${station.name} istasyonunu sil`);
-                    deleteButton.addEventListener('click', () => deleteStation(station.id));
-                    card.append(deleteButton);
-                }
+                const actions = document.createElement('div');
+                actions.className = 'station-actions';
+
+                const editButton = document.createElement('button');
+                editButton.className = 'icon-btn';
+                editButton.type = 'button';
+                editButton.textContent = '✎';
+                editButton.setAttribute('aria-label', `${station.name} istasyonunu düzenle`);
+                editButton.addEventListener('click', () => openModal(station.id));
+
+                const deleteButton = document.createElement('button');
+                deleteButton.className = 'icon-btn';
+                deleteButton.type = 'button';
+                deleteButton.textContent = '×';
+                deleteButton.setAttribute('aria-label', `${station.name} istasyonunu sil`);
+                deleteButton.addEventListener('click', () => deleteStation(station.id));
+
+                actions.append(favoriteButton, editButton, deleteButton);
+                card.append(selectButton, actions);
                 list.append(card);
             });
         }
@@ -436,6 +477,7 @@
             if (isPlaying) {
                 playRadio(id);
             } else {
+                syncNativePlaylist();
                 updateDisplay();
             }
         }
@@ -462,7 +504,9 @@
             currentStationId = station.id;
             saveSelectedStationId();
             isPlaying = true;
-            if (window.AndroidBridge) window.AndroidBridge.playStream(station.url, station.name);
+            if (window.AndroidBridge) {
+                window.AndroidBridge.playStream(JSON.stringify(sortedStations()), station.id);
+            }
             updateDisplay();
         }
 
@@ -497,36 +541,112 @@
             saveAndRender();
         }
 
-        function openModal() {
+        function openModal(stationId = null) {
+            const station = stationId ? stations.find(item => item.id === stationId) : null;
+            if (stationId && !station) return;
+            editingStationId = stationId;
+            document.getElementById('modalTitle').textContent = station ? 'İstasyonu düzenle' : 'Yeni istasyon ekle';
+            document.getElementById('newTitle').value = station?.name || '';
+            document.getElementById('newUrl').value = station?.url || '';
+            document.getElementById('newTitle').setCustomValidity('');
+            document.getElementById('newUrl').setCustomValidity('');
             document.getElementById('modal').classList.add('open');
             document.getElementById('newTitle').focus();
         }
 
         function closeModal() {
             document.getElementById('modal').classList.remove('open');
+            editingStationId = null;
         }
 
-        function addCustomStation() {
+        function openRestoreModal() {
+            document.getElementById('restoreModal').classList.add('open');
+        }
+
+        function closeRestoreModal() {
+            document.getElementById('restoreModal').classList.remove('open');
+        }
+
+        function saveStation() {
             const name = document.getElementById('newTitle').value.trim();
             const url = document.getElementById('newUrl').value.trim();
             const titleInput = document.getElementById('newTitle');
             const urlInput = document.getElementById('newUrl');
-            const validUrl = /^https?:\/\/\S+$/i.test(url);
+            let validUrl = false;
+            try {
+                const parsedUrl = new URL(url);
+                validUrl = ['http:', 'https:'].includes(parsedUrl.protocol) && Boolean(parsedUrl.hostname);
+            } catch {}
             titleInput.setCustomValidity(name ? '' : 'İstasyon adı girin.');
             urlInput.setCustomValidity(validUrl ? '' : 'Geçerli bir HTTP(S) yayın adresi girin.');
             if (!name || !validUrl) {
                 (name ? urlInput : titleInput).reportValidity();
                 return;
             }
-            stations.push({ id: Date.now().toString(), name, url, fav: false });
+            if (editingStationId) {
+                const station = stations.find(item => item.id === editingStationId);
+                if (!station) {
+                    closeModal();
+                    return;
+                }
+                station.name = name;
+                station.url = url;
+            } else {
+                stations.push({
+                    id: `custom-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+                    defaultKey: null,
+                    name,
+                    url,
+                    fav: false
+                });
+            }
             saveAndRender();
             closeModal();
-            document.getElementById('newTitle').value = '';
-            document.getElementById('newUrl').value = '';
+        }
+
+        function restoreDefaults() {
+            const existingDefaults = new Map(
+                stations
+                    .map(station => [defaultKeyForStation(station), station])
+                    .filter(([defaultKey]) => defaultKey)
+            );
+            const customStations = stations.filter(station => !defaultKeyForStation(station));
+            stations = [
+                ...defaultStations.map(station => ({
+                    ...station,
+                    fav: Boolean(existingDefaults.get(station.defaultKey)?.fav)
+                })),
+                ...customStations
+            ];
+            if (!selectedStation()) {
+                currentStationId = defaultStations[0]?.id || null;
+                saveSelectedStationId();
+            }
+            saveAndRender();
+            closeRestoreModal();
         }
 
         function saveAndRender() {
             persistStations(stations);
+            syncNativePlaylist();
+            updateDisplay();
+        }
+
+        function syncNativePlaylist() {
+            if (window.AndroidBridge) {
+                window.AndroidBridge.syncPlaylist(JSON.stringify(sortedStations()), currentStationId || '');
+            }
+        }
+
+        function selectStationFromNative(id) {
+            if (!stations.some(station => station.id === id)) return;
+            currentStationId = id;
+            saveSelectedStationId();
+            updateDisplay();
+        }
+
+        function setPlaybackStateFromNative(playing) {
+            isPlaying = Boolean(playing);
             updateDisplay();
         }
 
@@ -592,13 +712,17 @@
         }
 
         function deleteStation(id) {
+            const wasSelected = currentStationId === id;
+            const wasPlaying = wasSelected && isPlaying;
             stations = stations.filter(station => station.id !== id);
-            if (currentStationId === id) {
-                currentStationId = null;
+            if (wasSelected) {
+                currentStationId = stations[0]?.id || null;
                 saveSelectedStationId();
-                if (isPlaying) {
+                if (wasPlaying) {
                     isPlaying = false;
-                    if (window.AndroidBridge) window.AndroidBridge.stopStream();
+                    if (window.AndroidBridge) {
+                        window.AndroidBridge.stopStream();
+                    }
                 }
             }
             saveAndRender();
@@ -616,6 +740,7 @@
             || sortedStations()[0]?.id
             || null;
         updateDisplay();
+        syncNativePlaylist();
     </script>
 </body>
 </html>

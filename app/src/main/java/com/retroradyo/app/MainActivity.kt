@@ -3,6 +3,7 @@ package com.retroradyo.app
 import android.app.Activity
 import android.content.ComponentName
 import android.content.Intent
+import android.content.IntentFilter
 import android.os.BatteryManager
 import android.os.Build
 import android.os.Bundle
@@ -10,6 +11,7 @@ import android.webkit.JavascriptInterface
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.core.content.ContextCompat
+import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
@@ -25,16 +27,35 @@ class MainActivity : Activity() {
     private var pendingPlayerAction: ((MediaController) -> Unit)? = null
     private var pageReady = false
     private var pendingPowerAction: String? = null
+    private var wasCharging = false
     private lateinit var webView: WebView
+    private val powerConnectionReceiver = PowerConnectionReceiver()
+    private var powerReceiverRegistered = false
     private val playerListener = object : Player.Listener {
         override fun onIsPlayingChanged(isPlaying: Boolean) {
             updateKeepScreenOn()
+            if (!::webView.isInitialized || !pageReady) return
+            runOnUiThread {
+                webView.evaluateJavascript("setPlaybackStateFromNative($isPlaying)", null)
+            }
+        }
+
+        override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+            val stationId = mediaItem?.mediaId ?: return
+            if (!::webView.isInitialized || !pageReady) return
+            runOnUiThread {
+                webView.evaluateJavascript(
+                    "selectStationFromNative(${org.json.JSONObject.quote(stationId)})",
+                    null
+                )
+            }
         }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        if (intent?.action == ACTION_POWER_CONNECTED || isDeviceCharging()) {
+        wasCharging = isDeviceCharging()
+        if (intent?.action == ACTION_POWER_CONNECTED || wasCharging) {
             pendingPowerAction = START_RADIO_SCRIPT
             window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         }
@@ -59,6 +80,7 @@ class MainActivity : Activity() {
                         pendingVolume = null
                         pendingPlayerAction?.invoke(controller)
                         pendingPlayerAction = null
+                        syncPlaybackStateToWebView()
                         updateKeepScreenOn()
                     }
                 } catch (e: Exception) {
@@ -76,6 +98,7 @@ class MainActivity : Activity() {
             webViewClient = object : WebViewClient() {
                 override fun onPageFinished(view: WebView, url: String) {
                     pageReady = true
+                    syncPlaybackStateToWebView()
                     runPendingPowerAction()
                 }
             }
@@ -96,11 +119,33 @@ class MainActivity : Activity() {
     override fun onResume() {
         super.onResume()
         isVisibleToUser = true
+        val charging = isDeviceCharging()
+        if (charging != wasCharging) {
+            wasCharging = charging
+            if (charging) handlePowerConnected() else handlePowerDisconnected()
+        }
+        if (!powerReceiverRegistered) {
+            val filter = IntentFilter().apply {
+                addAction(Intent.ACTION_POWER_CONNECTED)
+                addAction(Intent.ACTION_POWER_DISCONNECTED)
+            }
+            ContextCompat.registerReceiver(
+                this,
+                powerConnectionReceiver,
+                filter,
+                ContextCompat.RECEIVER_EXPORTED
+            )
+            powerReceiverRegistered = true
+        }
         updateKeepScreenOn()
     }
 
     override fun onPause() {
         isVisibleToUser = false
+        if (powerReceiverRegistered) {
+            unregisterReceiver(powerConnectionReceiver)
+            powerReceiverRegistered = false
+        }
         super.onPause()
     }
 
@@ -119,6 +164,7 @@ class MainActivity : Activity() {
     }
 
     private fun handlePowerConnected() {
+        wasCharging = true
         window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         getSystemService(android.app.NotificationManager::class.java).cancel(POWER_NOTIFICATION_ID)
         pendingPowerAction = START_RADIO_SCRIPT
@@ -126,6 +172,7 @@ class MainActivity : Activity() {
     }
 
     private fun handlePowerDisconnected() {
+        wasCharging = false
         window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         try {
             mediaController?.stop()
@@ -145,24 +192,96 @@ class MainActivity : Activity() {
         webView.evaluateJavascript(script, null)
     }
 
+    private fun syncPlaybackStateToWebView() {
+        val controller = mediaController ?: return
+        if (!::webView.isInitialized || !pageReady) return
+        webView.evaluateJavascript("setPlaybackStateFromNative(${controller.isPlaying})", null)
+    }
+
     inner class WebAppInterface {
         @JavascriptInterface
-        fun playStream(url: String, title: String) {
+        fun playStream(stationsJson: String, stationId: String) {
             dispatchPlayerAction { controller ->
-                val mediaItem = MediaItem.fromUri(url)
-                controller.setMediaItem(
-                    mediaItem.buildUpon()
-                        .setMediaMetadata(MediaMetadata.Builder().setTitle(title).build())
-                        .build()
-                )
-                controller.prepare()
-                controller.play()
+                setStationPlaylist(controller, stationsJson, stationId, startPlayback = true)
             }
+        }
+
+        @JavascriptInterface
+        fun syncPlaylist(stationsJson: String, selectedStationId: String) {
+            dispatchPlayerAction { controller ->
+                setStationPlaylist(controller, stationsJson, selectedStationId, startPlayback = false)
+            }
+        }
+
+        @JavascriptInterface
+        fun getSelectedStationId(): String {
+            return getSharedPreferences(PLAYBACK_PREFERENCES, MODE_PRIVATE)
+                .getString(SELECTED_STATION_KEY, "")
+                .orEmpty()
         }
 
         @JavascriptInterface
         fun pauseStream() {
             dispatchPlayerAction { it.pause() }
+        }
+
+        private fun setStationPlaylist(
+            controller: MediaController,
+            stationsJson: String,
+            selectedStationId: String,
+            startPlayback: Boolean
+        ) {
+            val mediaItems = buildStationMediaItems(stationsJson)
+            if (mediaItems.isEmpty()) {
+                if (startPlayback) controller.stop()
+                return
+            }
+
+            val oldPlaybackState = controller.playbackState
+            val oldPlayWhenReady = controller.playWhenReady
+            val oldMediaId = controller.currentMediaItem?.mediaId
+            val oldPosition = controller.currentPosition
+            val currentIndex = mediaItems.indexOfFirst { it.mediaId == oldMediaId }
+            val selectedIndex = mediaItems.indexOfFirst { it.mediaId == selectedStationId }
+            val startIndex = when {
+                selectedIndex >= 0 -> selectedIndex
+                currentIndex >= 0 -> currentIndex
+                else -> 0
+            }
+            val preserveCurrentPosition = !startPlayback && currentIndex == startIndex
+            val startPosition = if (preserveCurrentPosition) oldPosition else C.TIME_UNSET
+
+            controller.setMediaItems(mediaItems, startIndex, startPosition)
+            val stationId = mediaItems[startIndex].mediaId
+            getSharedPreferences(PLAYBACK_PREFERENCES, MODE_PRIVATE)
+                .edit()
+                .putString(SELECTED_STATION_KEY, stationId)
+                .apply()
+
+            if (startPlayback || oldPlaybackState != Player.STATE_IDLE) {
+                controller.prepare()
+                if (startPlayback || oldPlayWhenReady) controller.play() else controller.pause()
+            }
+        }
+
+        private fun buildStationMediaItems(stationsJson: String): List<MediaItem> {
+            val stations = org.json.JSONArray(stationsJson)
+            return buildList {
+                for (index in 0 until stations.length()) {
+                    val station = stations.optJSONObject(index) ?: continue
+                    val id = station.optString("id")
+                    val name = station.optString("name")
+                    val url = station.optString("url")
+                    if (id.isBlank() || name.isBlank() || url.isBlank()) continue
+                    add(
+                        MediaItem.Builder()
+                            .setMediaId(id)
+                            .setUri(url)
+                            .setMediaMetadata(MediaMetadata.Builder().setTitle(name).build())
+                            .build()
+                    )
+                }
+            }
         }
 
         @JavascriptInterface
@@ -201,6 +320,10 @@ class MainActivity : Activity() {
 
     override fun onDestroy() {
         isVisibleToUser = false
+        if (powerReceiverRegistered) {
+            unregisterReceiver(powerConnectionReceiver)
+            powerReceiverRegistered = false
+        }
         mediaController?.removeListener(playerListener)
         if (::webView.isInitialized) webView.destroy()
         super.onDestroy()
@@ -208,6 +331,9 @@ class MainActivity : Activity() {
     }
 
     companion object {
+        private const val PLAYBACK_PREFERENCES = "radio_playback"
+        private const val SELECTED_STATION_KEY = "selected_station_id"
+
         @Volatile
         var isVisibleToUser: Boolean = false
             private set
