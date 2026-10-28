@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Retro Radyo</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+        body { background-color: #000000; color: #e1e3e6; padding: 20px 15px; display: flex; flex-direction: column; align-items: center; min-height: 100vh; }
+        .header { text-align: center; margin-bottom: 20px; width: 100%; }
+        .app-title { font-size: 12px; letter-spacing: 4px; color: #3b82f6; text-transform: uppercase; font-weight: bold; }
+        .clock { font-size: 52px; font-weight: 300; font-family: monospace; color: #ffffff; margin: 5px 0; text-shadow: 0 0 10px rgba(255,255,255,0.2); }
+        .status { font-size: 14px; color: #10b981; font-weight: 500; min-height: 20px; }
+        .main-controls { width: 100%; max-width: 400px; display: flex; flex-direction: column; gap: 10px; margin-bottom: 25px; }
+        .btn { background: #18181b; border: 1px solid #27272a; color: #fff; padding: 15px; border-radius: 10px; font-weight: bold; cursor: pointer; text-align: center; font-size: 15px; display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .btn:active { background: #27272a; transform: scale(0.98); }
+        .btn-primary { background: #2563eb; border-color: #3b82f6; }
+        .btn-danger { background: #7f1d1d; border-color: #991b1b; }
+        .btn-row { display: flex; gap: 10px; }
+        .btn-row .btn { flex: 1; }
+        .section-title { font-size: 11px; letter-spacing: 2px; color: #71717a; text-transform: uppercase; margin-bottom: 12px; width: 100%; max-width: 400px; font-weight: 600; }
+        .station-list { width: 100%; max-width: 400px; display: flex; flex-direction: column; gap: 10px; }
+        .station-card { background: #09090b; border: 1px solid #18181b; border-radius: 10px; padding: 12px 14px; display: flex; align-items: center; justify-content: space-between; }
+        .station-info { display: flex; align-items: center; gap: 10px; overflow: hidden; flex: 1; }
+        .station-name { font-size: 15px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #f4f4f5; }
+        .actions { display: flex; gap: 8px; }
+        .icon-btn { background: #18181b; border: 1px solid #27272a; color: #a1a1aa; width: 40px; height: 40px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 16px; cursor: pointer; }
+        .icon-btn.active { color: #f59e0b; border-color: #f59e0b; }
+        .icon-btn.play { background: #16a34a; border-color: #22c55e; color: #fff; }
+        .modal { display: none; position: fixed; top:0; left:0; right:0; bottom:0; background: rgba(0,0,0,0.9); align-items: center; justify-content: center; padding: 20px; z-index: 100; }
+        .modal-content { background: #18181b; padding: 20px; border-radius: 14px; width: 100%; max-width: 350px; display: flex; flex-direction: column; gap: 14px; border: 1px solid #27272a; }
+        .input-field { background: #09090b; border: 1px solid #27272a; color: #fff; padding: 12px; border-radius: 8px; font-size: 14px; width: 100%; outline: none; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="app-title">RETRO RADYO</div>
+        <div class="clock" id="clock">00:00</div>
+        <div class="status" id="status">Hazır</div>
+    </div>
+
+    <div class="main-controls">
+        <button class="btn btn-primary" id="playPauseBtn" onclick="togglePlayPause()">► OYNAT</button>
+        <div class="btn-row">
+            <button class="btn" onclick="openModal()">+ İSTASYON EKLE</button>
+            <button class="btn btn-danger" onclick="stopRadio()">DURDUR</button>
+        </div>
+    </div>
+
+    <div class="section-title">İSTASYONLAR</div>
+    <div class="station-list" id="stationList"></div>
+
+    <div class="modal" id="modal">
+        <div class="modal-content">
+            <h3 style="color:#fff;">Yeni İstasyon Ekle</h3>
+            <input type="text" id="newTitle" class="input-field" placeholder="İstasyon Adı">
+            <input type="text" id="newUrl" class="input-field" placeholder="Yayın Adresi (http/https)">
+            <div class="btn-row">
+                <button class="btn btn-primary" onclick="addCustomStation()">Kaydet</button>
+                <button class="btn" onclick="closeModal()">İptal</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const defaultStations = [
+            { id: '1', name: 'TRT FM', url: 'https://listen.radyotvonline.com/trt_fm/stream', fav: true },
+            { id: '2', name: 'Kral FM', url: 'https://listen.radyotvonline.com/kralfm/stream', fav: false },
+            { id: '3', name: 'Joy FM', url: 'https://listen.powerapp.com.tr/joyfm/mpeg/icecast.audio', fav: false },
+            { id: '4', name: 'Power FM', url: 'https://listen.powerapp.com.tr/powerfm/mpeg/icecast.audio', fav: false },
+            { id: '5', name: 'Süper FM', url: 'https://listen.powerapp.com.tr/superfm/mpeg/icecast.audio', fav: false },
+            { id: '6', name: 'SomaFM Groove Salad', url: 'https://ice2.somafm.com/groovesalad-128-mp3', fav: false },
+            { id: '7', name: 'SomaFM Secret Agent', url: 'https://ice2.somafm.com/secretagent-128-mp3', fav: false },
+            { id: '8', name: 'SomaFM Drone Zone', url: 'https://ice2.somafm.com/dronezone-128-mp3', fav: false }
+        ];
+
+        let stations = JSON.parse(localStorage.getItem('retro_stations')) || defaultStations;
+        let currentStation = null;
+        let isPlaying = false;
+
+        function updateClock() {
+            const now = new Date();
+            document.getElementById('clock').innerText = now.toTimeString().substr(0, 5);
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        function renderStations() {
+            const list = document.getElementById('stationList');
+            list.innerHTML = '';
+            const sorted = [...stations].sort((a,b) => b.fav - a.fav);
+
+            sorted.forEach(s => {
+                const isCustom = !defaultStations.some(ds => ds.id === s.id);
+                const card = document.createElement('div');
+                card.className = 'station-card';
+                card.innerHTML = `
+                    <div class="station-info">
+                        <span class="station-name">♪ ${s.name}</span>
+                    </div>
+                    <div class="actions">
+                        <button class="icon-btn ${s.fav ? 'active' : ''}" onclick="toggleFav('${s.id}')">★</button>
+                        <button class="icon-btn play" onclick="playRadio('${s.id}')">►</button>
+                        ${isCustom ? `<button class="icon-btn" style="color:#ef4444;" onclick="deleteStation('${s.id}')">✕</button>` : ''}
+                    </div>
+                `;
+                list.appendChild(card);
+            });
+        }
+
+        function playRadio(id) {
+            const s = stations.find(x => x.id === id);
+            if (!s) return;
+            currentStation = s;
+            isPlaying = true;
+            document.getElementById('status').innerText = 'Çalıyor: ' + s.name;
+            document.getElementById('playPauseBtn').innerText = '║║ DURAKLAT';
+            if (window.AndroidBridge) window.AndroidBridge.playStream(s.url, s.name);
+        }
+
+        function togglePlayPause() {
+            if (!currentStation && stations.length > 0) {
+                playRadio(stations[0].id);
+                return;
+            }
+            if (isPlaying) {
+                isPlaying = false;
+                document.getElementById('status').innerText = 'Duraklatıldı';
+                document.getElementById('playPauseBtn').innerText = '► OYNAT';
+                if (window.AndroidBridge) window.AndroidBridge.pauseStream();
+            } else if (currentStation) {
+                isPlaying = true;
+                document.getElementById('status').innerText = 'Çalıyor: ' + currentStation.name;
+                document.getElementById('playPauseBtn').innerText = '║║ DURAKLAT';
+                if (window.AndroidBridge) window.AndroidBridge.playStream(currentStation.url, currentStation.name);
+            }
+        }
+
+        function stopRadio() {
+            isPlaying = false;
+            currentStation = null;
+            document.getElementById('status').innerText = 'Durduruldu';
+            document.getElementById('playPauseBtn').innerText = '► OYNAT';
+            if (window.AndroidBridge) window.AndroidBridge.stopStream();
+        }
+
+        function toggleFav(id) {
+            stations = stations.map(s => s.id === id ? {...s, fav: !s.fav} : s);
+            saveAndRender();
+        }
+
+        function deleteStation(id) {
+            stations = stations.filter(s => s.id !== id);
+            saveAndRender();
+        }
+
+        function openModal() { document.getElementById('modal').style.display = 'flex'; }
+        function closeModal() { document.getElementById('modal').style.display = 'none'; }
+
+        function addCustomStation() {
+            const name = document.getElementById('newTitle').value.trim();
+            const url = document.getElementById('newUrl').value.trim();
+            if (!name || !url) return;
+            stations.push({ id: Date.now().toString(), name, url, fav: false });
+            saveAndRender();
+            closeModal();
+            document.getElementById('newTitle').value = '';
+            document.getElementById('newUrl').value = '';
+        }
+
+        function saveAndRender() {
+            localStorage.setItem('retro_stations', JSON.stringify(stations));
+            renderStations();
+        }
+
+        renderStations();
+    </script>
+</body>
+</html>
