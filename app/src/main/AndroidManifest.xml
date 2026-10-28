@@ -1,50 +1,273 @@
-<?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+package com.retroradyo.app
 
-    <uses-permission android:name="android.permission.INTERNET" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
-    <uses-permission android:name="android.permission.WAKE_LOCK" />
+import android.content.ComponentName
+import android.content.Intent
+import android.os.Build
+import android.os.Bundle
+import android.webkit.JavascriptInterface
+import android.webkit.WebView
+import android.webkit.WebViewClient
+import androidx.appcompat.app.AppCompatActivity
+import androidx.media3.common.MediaItem
+import androidx.media3.session.MediaController
+import androidx.media3.session.SessionToken
+import com.google.common.util.concurrent.ListenableFuture
+import com.google.common.util.concurrent.MoreExecutors
 
-    <application
-        android:allowBackup="true"
-        android:icon="@android:drawable/sym_def_app_icon"
-        android:label="RetroRadyo"
-        android:supportsRtl="true"
-        android:theme="@android:style/Theme.DeviceDefault.NoActionBar">
+class MainActivity : AppCompatActivity() {
 
-        <activity
-            android:name=".MainActivity"
-            android:exported="true"
-            android:configChanges="orientation|screenSize">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity>
+    private var controllerFuture: ListenableFuture<MediaController>? = null
+    private var mediaController: MediaController? = null
+    private lateinit var webView: WebView
 
-        <!-- Arka planda çalma servisi -->
-        <service
-            android:name=".PlaybackService"
-            android:foregroundServiceType="mediaPlayback"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="androidx.media3.session.MediaSessionService" />
-            </intent-filter>
-        </service>
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate()
 
-        <!-- Telefon açıldığında otomatik başlatma alıcısı -->
-        <receiver
-            android:name=".BootReceiver"
-            android:enabled="true"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.intent.action.BOOT_COMPLETED" />
-                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
-            </intent-filter>
-        </receiver>
+        // Arka plan med servis başlangıcı
+        val serviceIntent = Intent(this, PlaybackService::class.java)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            startForegroundService(serviceIntent)
+        } else {
+            startService(serviceIntent)
+        }
 
-    </application>
-</manifest>
+        // MediaController bağlantısı
+        val sessionToken = SessionToken(this, ComponentName(this, PlaybackService::class.java))
+        controllerFuture = MediaController.Builder(this, sessionToken).buildAsync()
+        controllerFuture?.addListener({
+            mediaController = controllerFuture?.get()
+        }, MoreExecutors.directExecutor())
+
+        // WebView ve Arayüz Kurulumu
+        webView = WebView(this).apply {
+            settings.javaScriptEnabled = true
+            settings.domStorageEnabled = true
+            addJavascriptInterface(WebAppInterface(), "AndroidBridge")
+            webViewClient = WebViewClient()
+            loadDataWithBaseURL(null, getHtmlContent(), "text/html", "UTF-8", null)
+        }
+        setContentView(webView)
+    }
+
+    inner class WebAppInterface {
+        @JavascriptInterface
+        fun playStream(url: String, title: String) {
+            runOnUiThread {
+                mediaController?.let { controller ->
+                    val mediaItem = MediaItem.fromUri(url)
+                    controller.setMediaItem(mediaItem)
+                    controller.prepare()
+                    controller.play()
+                }
+            }
+        }
+
+        @JavascriptInterface
+        fun pauseStream() {
+            runOnUiThread {
+                mediaController?.pause()
+            }
+        }
+
+        @JavascriptInterface
+        fun stopStream() {
+            runOnUiThread {
+                mediaController?.stop()
+            }
+        }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        controllerFuture?.let { MediaController.releaseFuture(it) }
+    }
+
+    private fun getHtmlContent(): String {
+        return """
+        <!DOCTYPE html>
+        <html lang="tr">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+            <title>Retro Radyo</title>
+            <style>
+                * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+                body { background-color: #0d0e12; color: #e1e3e6; padding: 20px 15px; display: flex; flex-direction: column; align-items: center; min-height: 100vh; }
+                .header { text-align: center; margin-bottom: 15px; width: 100%; }
+                .app-title { font-size: 13px; letter-spacing: 3px; color: #7a828e; text-transform: uppercase; }
+                .clock { font-size: 48px; font-weight: 300; font-family: monospace; color: #ffffff; margin: 5px 0; }
+                .status { font-size: 14px; color: #00ff88; min-height: 20px; }
+                .main-controls { width: 100%; max-width: 400px; display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; }
+                .btn { background: #1e222d; border: 1px solid #2e3444; color: #fff; padding: 14px; border-radius: 8px; font-weight: bold; cursor: pointer; text-align: center; font-size: 15px; display: flex; align-items: center; justify-content: center; gap: 8px; }
+                .btn:active { background: #2a3040; transform: scale(0.98); }
+                .btn-primary { background: #2563eb; border-color: #3b82f6; }
+                .btn-danger { background: #991b1b; border-color: #dc2626; }
+                .btn-row { display: flex; gap: 10px; }
+                .btn-row .btn { flex: 1; }
+                .section-title { font-size: 12px; letter-spacing: 1px; color: #64748b; text-transform: uppercase; margin-bottom: 10px; width: 100%; max-width: 400px; }
+                .station-list { width: 100%; max-width: 400px; display: flex; flex-direction: column; gap: 8px; }
+                .station-card { background: #161922; border: 1px solid #232836; border-radius: 8px; padding: 10px 12px; display: flex; align-items: center; justify-content: space-between; }
+                .station-info { display: flex; align-items: center; gap: 10px; overflow: hidden; flex: 1; }
+                .station-name { font-size: 14px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+                .actions { display: flex; gap: 6px; }
+                .icon-btn { background: #232836; border: none; color: #94a3b8; width: 36px; height: 36px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 16px; cursor: pointer; }
+                .icon-btn.active { color: #f59e0b; }
+                .icon-btn.play { background: #16a34a; color: #fff; }
+                .modal { display: none; position: fixed; top:0; left:0; right:0; bottom:0; background: rgba(0,0,0,0.85); align-items: center; justify-content: center; padding: 20px; z-index: 100; }
+                .modal-content { background: #1e222d; padding: 20px; border-radius: 12px; width: 100%; max-width: 350px; display: flex; flex-direction: column; gap: 12px; }
+                .input-field { background: #0d0e12; border: 1px solid #2e3444; color: #fff; padding: 12px; border-radius: 6px; font-size: 14px; width: 100%; }
+            </style>
+        </head>
+        <body>
+            <div class="header">
+                <div class="app-title">RETRO RADYO</div>
+                <div class="clock" id="clock">00:00</div>
+                <div class="status" id="status">Hazır</div>
+            </div>
+
+            <div class="main-controls">
+                <button class="btn btn-primary" id="playPauseBtn" onclick="togglePlayPause()">► OYNAT</button>
+                <div class="btn-row">
+                    <button class="btn" onclick="openModal()">+ İSTASYON EKLE</button>
+                    <button class="btn btn-danger" onclick="stopRadio()">DURDUR</button>
+                </div>
+            </div>
+
+            <div class="section-title">İSTASYONLAR</div>
+            <div class="station-list" id="stationList"></div>
+
+            <div class="modal" id="modal">
+                <div class="modal-content">
+                    <h3 style="color:#fff;">Yeni İstasyon Ekle</h3>
+                    <input type="text" id="newTitle" class="input-field" placeholder="İstasyon Adı">
+                    <input type="text" id="newUrl" class="input-field" placeholder="Yayın Adresi (http/https)">
+                    <div class="btn-row">
+                        <button class="btn btn-primary" onclick="addCustomStation()">Kaydet</button>
+                        <button class="btn" onclick="closeModal()">İptal</button>
+                    </div>
+                </div>
+            </div>
+
+            <script>
+                const defaultStations = [
+                    { id: '1', name: 'TRT FM', url: 'https://listen.radyotvonline.com/trt_fm/stream', fav: true },
+                    { id: '2', name: 'Kral FM', url: 'https://listen.radyotvonline.com/kralfm/stream', fav: false },
+                    { id: '3', name: 'Joy FM', url: 'https://listen.powerapp.com.tr/joyfm/mpeg/icecast.audio', fav: false },
+                    { id: '4', name: 'Power FM', url: 'https://listen.powerapp.com.tr/powerfm/mpeg/icecast.audio', fav: false },
+                    { id: '5', name: 'Süper FM', url: 'https://listen.powerapp.com.tr/superfm/mpeg/icecast.audio', fav: false },
+                    { id: '6', name: 'SomaFM Groove Salad', url: 'https://ice2.somafm.com/groovesalad-128-mp3', fav: false },
+                    { id: '7', name: 'SomaFM Secret Agent', url: 'https://ice2.somafm.com/secretagent-128-mp3', fav: false },
+                    { id: '8', name: 'SomaFM Drone Zone', url: 'https://ice2.somafm.com/dronezone-128-mp3', fav: false }
+                ];
+
+                let stations = JSON.parse(localStorage.getItem('retro_stations')) || defaultStations;
+                let currentStation = null;
+                let isPlaying = false;
+
+                function updateClock() {
+                    const now = new Date();
+                    document.getElementById('clock').innerText = now.toTimeString().substr(0, 5);
+                }
+                setInterval(updateClock, 1000);
+                updateClock();
+
+                function renderStations() {
+                    const list = document.getElementById('stationList');
+                    list.innerHTML = '';
+                    
+                    // Favorileri üste al
+                    const sorted = [...stations].sort((a,b) => b.fav - a.fav);
+
+                    sorted.forEach(s => {
+                        const isCustom = !defaultStations.some(ds => ds.id === s.id);
+                        const card = document.createElement('div');
+                        card.className = 'station-card';
+                        card.innerHTML = `
+                            <div class="station-info">
+                                <span class="station-name">♪ ${s.name}</span>
+                            </div>
+                            <div class="actions">
+                                <button class="icon-btn ${s.fav ? 'active' : ''}" onclick="toggleFav('${s.id}')">★</button>
+                                <button class="icon-btn play" onclick="playRadio('${s.id}')">►</button>
+                                ${isCustom ? `<button class="icon-btn" style="color:#ef4444;" onclick="deleteStation('${s.id}')">✕</button>` : ''}
+                            </div>
+                        `;
+                        list.appendChild(card);
+                    });
+                }
+
+                function playRadio(id) {
+                    const s = stations.find(x => x.id === id);
+                    if (!s) return;
+                    currentStation = s;
+                    isPlaying = true;
+                    document.getElementById('status').innerText = 'Çalıyor: ' + s.name;
+                    document.getElementById('playPauseBtn').innerText = '║║ DURAKLAT';
+                    if (window.AndroidBridge) {
+                        window.AndroidBridge.playStream(s.url, s.name);
+                    }
+                }
+
+                function togglePlayPause() {
+                    if (!currentStation && stations.length > 0) {
+                        playRadio(stations[0].id);
+                        return;
+                    }
+                    if (isPlaying) {
+                        isPlaying = false;
+                        document.getElementById('status').innerText = 'Duraklatıldı';
+                        document.getElementById('playPauseBtn').innerText = '► OYNAT';
+                        if (window.AndroidBridge) window.AndroidBridge.pauseStream();
+                    } else if (currentStation) {
+                        isPlaying = true;
+                        document.getElementById('status').innerText = 'Çalıyor: ' + currentStation.name;
+                        document.getElementById('playPauseBtn').innerText = '║║ DURAKLAT';
+                        if (window.AndroidBridge) window.AndroidBridge.playStream(currentStation.url, currentStation.name);
+                    }
+                }
+
+                function stopRadio() {
+                    isPlaying = false;
+                    currentStation = null;
+                    document.getElementById('status').innerText = 'Durduruldu';
+                    document.getElementById('playPauseBtn').innerText = '► OYNAT';
+                    if (window.AndroidBridge) window.AndroidBridge.stopStream();
+                }
+
+                function toggleFav(id) {
+                    stations = stations.map(s => s.id === id ? {...s, fav: !s.fav} : s);
+                    saveAndRender();
+                }
+
+                function deleteStation(id) {
+                    stations = stations.filter(s => s.id !== id);
+                    saveAndRender();
+                }
+
+                function openModal() { document.getElementById('modal').style.display = 'flex'; }
+                function closeModal() { document.getElementById('modal').style.display = 'none'; }
+
+                function addCustomStation() {
+                    const name = document.getElementById('newTitle').value.trim();
+                    const url = document.getElementById('newUrl').value.trim();
+                    if (!name || !url) return;
+                    
+                    stations.push({ id: Date.now().toString(), name, url, fav: false });
+                    saveAndRender();
+                    closeModal();
+                    document.getElementById('newTitle').value = '';
+                    document.getElementById('newUrl').value = '';
+                }
+
+                function saveAndRender() {
+                    localStorage.setItem('retro_stations', JSON.stringify(stations));
+                    renderStations();
+                }
+
+                renderStations();
+            </script>
+        </body>
+        </html>
+        """.trimIndent()
+    }
+}
