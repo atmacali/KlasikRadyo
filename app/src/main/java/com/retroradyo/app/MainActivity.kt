@@ -7,6 +7,7 @@ import android.content.IntentFilter
 import android.os.BatteryManager
 import android.os.Build
 import android.os.Bundle
+import android.os.Looper
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -118,7 +119,9 @@ class MainActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
-        isVisibleToUser = true
+        synchronized(foregroundActivityLock) {
+            foregroundActivity = this
+        }
         val charging = isDeviceCharging()
         if (charging != wasCharging) {
             wasCharging = charging
@@ -141,7 +144,9 @@ class MainActivity : Activity() {
     }
 
     override fun onPause() {
-        isVisibleToUser = false
+        synchronized(foregroundActivityLock) {
+            if (foregroundActivity === this) foregroundActivity = null
+        }
         if (powerReceiverRegistered) {
             unregisterReceiver(powerConnectionReceiver)
             powerReceiverRegistered = false
@@ -319,7 +324,9 @@ class MainActivity : Activity() {
     }
 
     override fun onDestroy() {
-        isVisibleToUser = false
+        synchronized(foregroundActivityLock) {
+            if (foregroundActivity === this) foregroundActivity = null
+        }
         if (powerReceiverRegistered) {
             unregisterReceiver(powerConnectionReceiver)
             powerReceiverRegistered = false
@@ -334,9 +341,32 @@ class MainActivity : Activity() {
         private const val PLAYBACK_PREFERENCES = "radio_playback"
         private const val SELECTED_STATION_KEY = "selected_station_id"
 
+        private val foregroundActivityLock = Any()
         @Volatile
-        var isVisibleToUser: Boolean = false
-            private set
+        private var foregroundActivity: MainActivity? = null
+
+        fun dispatchPowerActionToVisibleActivity(action: String): Boolean {
+            val activity = synchronized(foregroundActivityLock) { foregroundActivity } ?: return false
+            if (activity.isFinishing || activity.isDestroyed) {
+                return false
+            }
+
+            val handleAction = Runnable {
+                if (!activity.isFinishing && !activity.isDestroyed) {
+                    when (action) {
+                        ACTION_POWER_CONNECTED -> activity.handlePowerConnected()
+                        ACTION_POWER_DISCONNECTED -> activity.handlePowerDisconnected()
+                        else -> Unit
+                    }
+                }
+            }
+            if (Looper.myLooper() == Looper.getMainLooper()) {
+                handleAction.run()
+            } else {
+                activity.runOnUiThread(handleAction)
+            }
+            return true
+        }
 
         const val ACTION_POWER_CONNECTED = "com.retroradyo.app.POWER_CONNECTED"
         const val ACTION_POWER_DISCONNECTED = "com.retroradyo.app.POWER_DISCONNECTED"
