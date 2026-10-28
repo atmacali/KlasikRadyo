@@ -1,18 +1,19 @@
 package com.retroradyo.app
 
+import android.app.Activity
 import android.content.ComponentName
+import android.os.Build
 import android.os.Bundle
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
 import android.webkit.WebViewClient
-import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import androidx.media3.common.MediaItem
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.google.common.util.concurrent.ListenableFuture
-import com.google.common.util.concurrent.MoreExecutors
 
-class MainActivity : AppCompatActivity() {
+class MainActivity : Activity() {
 
     private var controllerFuture: ListenableFuture<MediaController>? = null
     private var mediaController: MediaController? = null
@@ -21,12 +22,27 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Media3 arka plan servisini kendi yönetir, bu yüzden MediaController'ı bağlamak yeterlidir.
-        val sessionToken = SessionToken(this, ComponentName(this, PlaybackService::class.java))
-        controllerFuture = MediaController.Builder(this, sessionToken).buildAsync()
-        controllerFuture?.addListener({
-            mediaController = controllerFuture?.get()
-        }, MoreExecutors.directExecutor())
+        // Android 13+ bildirim izni talebi
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 101)
+            }
+        }
+
+        try {
+            val sessionToken = SessionToken(this, ComponentName(this, PlaybackService::class.java))
+            controllerFuture = MediaController.Builder(this, sessionToken).buildAsync()
+            
+            controllerFuture?.addListener({
+                try {
+                    mediaController = controllerFuture?.get()
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }, ContextCompat.getMainExecutor(this))
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
 
         webView = WebView(this).apply {
             settings.javaScriptEnabled = true
@@ -42,11 +58,15 @@ class MainActivity : AppCompatActivity() {
         @JavascriptInterface
         fun playStream(url: String, title: String) {
             runOnUiThread {
-                mediaController?.let { controller ->
-                    val mediaItem = MediaItem.fromUri(url)
-                    controller.setMediaItem(mediaItem)
-                    controller.prepare()
-                    controller.play()
+                try {
+                    mediaController?.let { controller ->
+                        val mediaItem = MediaItem.fromUri(url)
+                        controller.setMediaItem(mediaItem)
+                        controller.prepare()
+                        controller.play()
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
                 }
             }
         }
@@ -54,14 +74,18 @@ class MainActivity : AppCompatActivity() {
         @JavascriptInterface
         fun pauseStream() {
             runOnUiThread {
-                mediaController?.pause()
+                try {
+                    mediaController?.pause()
+                } catch (e: Exception) {}
             }
         }
 
         @JavascriptInterface
         fun stopStream() {
             runOnUiThread {
-                mediaController?.stop()
+                try {
+                    mediaController?.stop()
+                } catch (e: Exception) {}
             }
         }
     }
