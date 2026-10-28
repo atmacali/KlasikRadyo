@@ -3,10 +3,8 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 
-val releaseKeystorePath = providers.environmentVariable("ANDROID_KEYSTORE_PATH")
-val releaseKeystorePassword = providers.environmentVariable("ANDROID_KEYSTORE_PASSWORD")
-val releaseKeyAlias = providers.environmentVariable("ANDROID_KEY_ALIAS")
-val releaseKeyPassword = providers.environmentVariable("ANDROID_KEY_PASSWORD")
+val githubRunNumber = providers.environmentVariable("GITHUB_RUN_NUMBER").orNull?.toIntOrNull()
+val appVersionCode = githubRunNumber?.plus(2) ?: 3
 
 android {
     namespace = "com.retroradyo.app"
@@ -16,22 +14,25 @@ android {
         applicationId = "com.retroradyo.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 2
+        versionCode = appVersionCode
         versionName = "1.1"
     }
 
     signingConfigs {
-        create("release") {
-            releaseKeystorePath.orNull?.let { storeFile = file(it) }
-            releaseKeystorePassword.orNull?.let { storePassword = it }
-            releaseKeyAlias.orNull?.let { keyAlias = it }
-            releaseKeyPassword.orNull?.let { keyPassword = it }
+        create("stableDebug") {
+            storeFile = file("retroradyo-debug.p12")
+            storePassword = "android"
+            keyAlias = "retroradyo-debug"
+            keyPassword = "android"
+            storeType = "PKCS12"
         }
     }
 
     buildTypes {
+        getByName("debug") {
+            signingConfig = signingConfigs.getByName("stableDebug")
+        }
         getByName("release") {
-            signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = false
         }
     }
