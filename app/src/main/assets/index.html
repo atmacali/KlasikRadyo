@@ -2,165 +2,522 @@
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#101216">
     <title>Retro Radyo</title>
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
-        body { background-color: #000000; color: #e1e3e6; padding: 20px 15px; display: flex; flex-direction: column; align-items: center; min-height: 100vh; }
-        .header { text-align: center; margin-bottom: 20px; width: 100%; }
-        .app-title { font-size: 12px; letter-spacing: 4px; color: #3b82f6; text-transform: uppercase; font-weight: bold; }
-        .clock { font-size: 52px; font-weight: 300; font-family: monospace; color: #ffffff; margin: 5px 0; text-shadow: 0 0 10px rgba(255,255,255,0.2); }
-        .status { font-size: 14px; color: #10b981; font-weight: 500; min-height: 20px; }
-        .main-controls { width: 100%; max-width: 400px; display: flex; flex-direction: column; gap: 10px; margin-bottom: 25px; }
-        .btn { background: #18181b; border: 1px solid #27272a; color: #fff; padding: 15px; border-radius: 10px; font-weight: bold; cursor: pointer; text-align: center; font-size: 15px; display: flex; align-items: center; justify-content: center; gap: 8px; }
-        .btn:active { background: #27272a; transform: scale(0.98); }
-        .btn-primary { background: #2563eb; border-color: #3b82f6; }
-        .btn-danger { background: #7f1d1d; border-color: #991b1b; }
-        .btn-row { display: flex; gap: 10px; }
-        .btn-row .btn { flex: 1; }
-        .section-title { font-size: 11px; letter-spacing: 2px; color: #71717a; text-transform: uppercase; margin-bottom: 12px; width: 100%; max-width: 400px; font-weight: 600; }
-        .station-list { width: 100%; max-width: 400px; display: flex; flex-direction: column; gap: 10px; }
-        .station-card { background: #09090b; border: 1px solid #18181b; border-radius: 10px; padding: 12px 14px; display: flex; align-items: center; justify-content: space-between; }
-        .station-info { display: flex; align-items: center; gap: 10px; overflow: hidden; flex: 1; }
-        .station-name { font-size: 15px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #f4f4f5; }
-        .actions { display: flex; gap: 8px; }
-        .icon-btn { background: #18181b; border: 1px solid #27272a; color: #a1a1aa; width: 40px; height: 40px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 16px; cursor: pointer; }
-        .icon-btn.active { color: #f59e0b; border-color: #f59e0b; }
-        .icon-btn.play { background: #16a34a; border-color: #22c55e; color: #fff; }
-        .modal { display: none; position: fixed; top:0; left:0; right:0; bottom:0; background: rgba(0,0,0,0.9); align-items: center; justify-content: center; padding: 20px; z-index: 100; }
-        .modal-content { background: #18181b; padding: 20px; border-radius: 14px; width: 100%; max-width: 350px; display: flex; flex-direction: column; gap: 14px; border: 1px solid #27272a; }
-        .input-field { background: #09090b; border: 1px solid #27272a; color: #fff; padding: 12px; border-radius: 8px; font-size: 14px; width: 100%; outline: none; }
+        :root {
+            color-scheme: dark;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #101216;
+            color: #f4f4f5;
+            font-synthesis: none;
+        }
+        * { box-sizing: border-box; }
+        body {
+            min-height: 100vh;
+            margin: 0;
+            padding: max(24px, env(safe-area-inset-top)) 18px max(28px, env(safe-area-inset-bottom));
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background: radial-gradient(ellipse at 50% 10%, #202630 0, #101216 55%);
+        }
+        button { font: inherit; color: inherit; }
+        .app { width: min(100%, 460px); }
+        .header { text-align: center; margin-bottom: 24px; }
+        .app-title {
+            color: #9da7b3;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 4px;
+        }
+        .clock {
+            margin: 12px 0 2px;
+            color: #fff;
+            font: 300 48px/1.1 ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-variant-numeric: tabular-nums;
+        }
+        .now-playing {
+            min-height: 24px;
+            overflow: hidden;
+            color: #c1cad5;
+            font-size: 15px;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .status { margin-top: 5px; color: #7dd3a7; font-size: 13px; }
+        .knobs {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: clamp(18px, 7vw, 36px);
+            margin: 0 auto 28px;
+        }
+        .knob-group { min-width: 0; text-align: center; }
+        .knob-label {
+            display: block;
+            margin-bottom: 12px;
+            color: #9da7b3;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 2px;
+        }
+        .knob {
+            --knob-size: clamp(116px, 38vw, 148px);
+            --knob-pivot: clamp(45px, calc(19vw - 13px), 61px);
+            --rotation: -135deg;
+            position: relative;
+            display: grid;
+            width: var(--knob-size);
+            height: var(--knob-size);
+            margin: 0 auto;
+            padding: 12px;
+            place-items: center;
+            border: 1px solid #48515d;
+            border-radius: 50%;
+            background:
+                radial-gradient(circle at 50% 50%, #303843 0 54%, transparent 55%),
+                conic-gradient(from 225deg, #39a77b 0deg, #39a77b var(--arc, 0deg), #303843 var(--arc, 0deg), #303843 270deg, transparent 270deg),
+                linear-gradient(145deg, #596371, #1d2229 70%);
+            box-shadow: inset 0 2px 5px #ffffff18, 0 10px 24px #0008;
+            cursor: pointer;
+            touch-action: none;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .knob::before {
+            position: absolute;
+            top: 13px;
+            left: 50%;
+            width: 4px;
+            height: 15px;
+            border-radius: 4px;
+            background: #a7f3d0;
+            box-shadow: 0 0 9px #34d399;
+            content: "";
+            transform: translateX(-50%) rotate(var(--rotation));
+            transform-origin: 50% var(--knob-pivot);
+        }
+        .knob:active { filter: brightness(1.13); }
+        .knob:focus-visible { outline: 3px solid #60a5fa; outline-offset: 4px; }
+        .knob-value { font-size: 21px; font-weight: 700; font-variant-numeric: tabular-nums; }
+        .knob-hint { margin-top: 4px; color: #aab4c0; font-size: 10px; letter-spacing: 1px; }
+        .gesture-hint { margin-top: 12px; color: #7f8995; font-size: 11px; }
+        .toolbar { display: flex; gap: 10px; margin-bottom: 25px; }
+        .btn {
+            min-height: 48px;
+            padding: 12px 16px;
+            border: 1px solid #343b45;
+            border-radius: 12px;
+            background: #1b2027;
+            font-size: 14px;
+            font-weight: 650;
+            cursor: pointer;
+        }
+        .btn:active { transform: scale(.98); }
+        .btn-primary { flex: 1; background: #17684d; border-color: #278361; }
+        .btn-stop { color: #fca5a5; }
+        .section-title {
+            margin-bottom: 11px;
+            color: #9da7b3;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 2px;
+        }
+        .station-list { display: flex; flex-direction: column; gap: 8px; }
+        .station-card {
+            display: flex;
+            min-height: 58px;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 10px 8px 14px;
+            border: 1px solid #272d35;
+            border-radius: 12px;
+            background: #191d23;
+        }
+        .station-card.selected { border-color: #438d70; background: #1d2927; }
+        .station-select {
+            flex: 1;
+            min-width: 0;
+            padding: 10px 0;
+            overflow: hidden;
+            border: 0;
+            background: none;
+            text-align: left;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            cursor: pointer;
+        }
+        .station-select::before { color: #7dd3a7; content: "♪  "; }
+        .icon-btn {
+            display: grid;
+            width: 40px;
+            height: 40px;
+            flex: 0 0 40px;
+            place-items: center;
+            border: 1px solid #343b45;
+            border-radius: 10px;
+            background: #222831;
+            color: #c1cad5;
+            font-size: 17px;
+            cursor: pointer;
+        }
+        .icon-btn.active { color: #fbbf24; border-color: #8a6a22; }
+        .modal {
+            position: fixed;
+            z-index: 5;
+            inset: 0;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            background: #000c;
+        }
+        .modal.open { display: flex; }
+        .modal-content {
+            display: flex;
+            width: min(100%, 360px);
+            flex-direction: column;
+            gap: 13px;
+            padding: 20px;
+            border: 1px solid #343b45;
+            border-radius: 16px;
+            background: #1b2027;
+        }
+        .modal-content h2 { margin: 0 0 4px; font-size: 18px; }
+        .input-field {
+            width: 100%;
+            min-height: 48px;
+            padding: 12px;
+            border: 1px solid #343b45;
+            border-radius: 9px;
+            background: #101216;
+            color: #fff;
+            font-size: 16px;
+        }
+        .modal-actions { display: flex; gap: 9px; }
+        .modal-actions .btn { flex: 1; }
+        @media (max-height: 680px) {
+            body { padding-top: max(14px, env(safe-area-inset-top)); }
+            .header { margin-bottom: 16px; }
+            .clock { font-size: 40px; }
+            .knobs { margin-bottom: 18px; }
+            .knob { --knob-size: 116px; --knob-pivot: 45px; }
+        }
     </style>
 </head>
 <body>
-    <div class="header">
-        <div class="app-title">RETRO RADYO</div>
-        <div class="clock" id="clock">00:00</div>
-        <div class="status" id="status">Hazır</div>
-    </div>
+    <main class="app">
+        <header class="header">
+            <div class="app-title">RETRO RADYO</div>
+            <div class="clock" id="clock">00:00</div>
+            <div class="now-playing" id="nowPlaying">Bir istasyon seç</div>
+            <div class="status" id="status" aria-live="polite">Hazır</div>
+        </header>
 
-    <div class="main-controls">
-        <button class="btn btn-primary" id="playPauseBtn" onclick="togglePlayPause()">► OYNAT</button>
-        <div class="btn-row">
-            <button class="btn" onclick="openModal()">+ İSTASYON EKLE</button>
-            <button class="btn btn-danger" onclick="stopRadio()">DURDUR</button>
+        <section class="knobs" aria-label="Radyo kontrolleri">
+            <div class="knob-group">
+                <span class="knob-label">SES</span>
+                <button class="knob" id="volumeKnob" type="button" aria-label="Ses seviyesi: yüzde 70. Döndürerek ayarla, basarak oynat veya duraklat." title="Döndür: ses · Bas: oynat/duraklat">
+                    <span><span class="knob-value" id="volumeValue">70%</span><span class="knob-hint">SES</span></span>
+                </button>
+                <div class="gesture-hint">Döndür: ses · Bas: oynat / duraklat</div>
+            </div>
+            <div class="knob-group">
+                <span class="knob-label">KANAL</span>
+                <button class="knob" id="stationKnob" type="button" aria-label="Kanal seçici. Döndürerek kanal seç, basarak oynat veya duraklat." title="Döndür: kanal · Bas: oynat/duraklat">
+                    <span><span class="knob-value" id="stationValue">01/08</span><span class="knob-hint">KANAL</span></span>
+                </button>
+                <div class="gesture-hint">Döndür: kanal · Bas: oynat / duraklat</div>
+            </div>
+        </section>
+
+        <div class="toolbar">
+            <button class="btn btn-primary" type="button" onclick="openModal()">＋ İSTASYON EKLE</button>
+            <button class="btn btn-stop" type="button" onclick="stopRadio()">DURDUR</button>
         </div>
-    </div>
 
-    <div class="section-title">İSTASYONLAR</div>
-    <div class="station-list" id="stationList"></div>
+        <h1 class="section-title">İSTASYONLAR</h1>
+        <div class="station-list" id="stationList"></div>
+    </main>
 
-    <div class="modal" id="modal">
+    <div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
         <div class="modal-content">
-            <h3 style="color:#fff;">Yeni İstasyon Ekle</h3>
-            <input type="text" id="newTitle" class="input-field" placeholder="İstasyon Adı">
-            <input type="text" id="newUrl" class="input-field" placeholder="Yayın Adresi (http/https)">
-            <div class="btn-row">
-                <button class="btn btn-primary" onclick="addCustomStation()">Kaydet</button>
-                <button class="btn" onclick="closeModal()">İptal</button>
+            <h2 id="modalTitle">Yeni istasyon ekle</h2>
+            <input type="text" id="newTitle" class="input-field" placeholder="İstasyon adı" aria-label="İstasyon adı">
+            <input type="url" id="newUrl" class="input-field" placeholder="Yayın adresi (http/https)" aria-label="Yayın adresi">
+            <div class="modal-actions">
+                <button class="btn btn-primary" type="button" onclick="addCustomStation()">Kaydet</button>
+                <button class="btn" type="button" onclick="closeModal()">İptal</button>
             </div>
         </div>
     </div>
 
     <script>
+        const stationListVersionKey = 'retro_stations_version';
+        const stationListVersion = '2';
         const defaultStations = [
-            { id: '1', name: 'TRT FM', url: 'https://listen.radyotvonline.com/trt_fm/stream', fav: true },
-            { id: '2', name: 'Kral FM', url: 'https://listen.radyotvonline.com/kralfm/stream', fav: false },
-            { id: '3', name: 'Joy FM', url: 'https://listen.powerapp.com.tr/joyfm/mpeg/icecast.audio', fav: false },
-            { id: '4', name: 'Power FM', url: 'https://listen.powerapp.com.tr/powerfm/mpeg/icecast.audio', fav: false },
-            { id: '5', name: 'Süper FM', url: 'https://listen.powerapp.com.tr/superfm/mpeg/icecast.audio', fav: false },
-            { id: '6', name: 'SomaFM Groove Salad', url: 'https://ice2.somafm.com/groovesalad-128-mp3', fav: false },
-            { id: '7', name: 'SomaFM Secret Agent', url: 'https://ice2.somafm.com/secretagent-128-mp3', fav: false },
-            { id: '8', name: 'SomaFM Drone Zone', url: 'https://ice2.somafm.com/dronezone-128-mp3', fav: false }
+            { id: '1', name: 'Radyo Fenomen 100.4 FM', url: 'https://live.radyofenomen.com/fenomen/128/icecast.audio', fav: false },
+            { id: '2', name: 'Süper FM 90.8', url: 'https://25593.live.streamtheworld.com:443/SUPER_FM.mp3', fav: false },
+            { id: '3', name: 'Radyo 7', url: 'http://46.20.3.251/stream/169/', fav: false },
+            { id: '4', name: 'Best FM', url: 'http://46.20.7.126/;stream.mp3', fav: false },
+            { id: '5', name: 'JoyTurk FM 89.0', url: 'https://25493.live.streamtheworld.com:443/JOY_TURKAAC.aac', fav: false },
+            { id: '6', name: 'Süper FM', url: 'https://25633.live.streamtheworld.com:443/SUPER_FM128AAC.aac', fav: false },
+            { id: '7', name: '88.6 Istanbul FM', url: 'http://46.20.4.50:9300', fav: false },
+            { id: '8', name: 'Pal Nostalji FM 99.2', url: 'http://shoutcast.radyogrup.com:1010/', fav: false },
+            { id: '9', name: 'SlowTürk', url: 'https://radyo.duhnet.tv/ak_dtvh_slowturk', fav: false },
+            { id: '10', name: 'Show Radyo', url: 'https://showradyo.radyotvonline.net/showradyoaac', fav: false },
+            { id: '11', name: 'TRT FM', url: 'https://trt.radyotvonline.net/trtfm', fav: false },
+            { id: '12', name: 'Power Türk Taptaze', url: 'https://listen.powerapp.com.tr/powerturktaptaze/mpeg/icecast.audio', fav: false }
         ];
 
-        let stations = JSON.parse(localStorage.getItem('retro_stations')) || defaultStations;
-        let currentStation = null;
+        const previousDefaultStations = [
+            { id: '1', name: 'TRT FM', url: 'https://listen.radyotvonline.com/trt_fm/stream' },
+            { id: '2', name: 'Kral FM', url: 'https://listen.radyotvonline.com/kralfm/stream' },
+            { id: '3', name: 'Joy FM', url: 'https://listen.powerapp.com.tr/joyfm/mpeg/icecast.audio' },
+            { id: '4', name: 'Power FM', url: 'https://listen.powerapp.com.tr/powerfm/mpeg/icecast.audio' },
+            { id: '5', name: 'Süper FM', url: 'https://listen.powerapp.com.tr/superfm/mpeg/icecast.audio' },
+            { id: '6', name: 'SomaFM Groove Salad', url: 'https://ice2.somafm.com/groovesalad-128-mp3' },
+            { id: '7', name: 'SomaFM Secret Agent', url: 'https://ice2.somafm.com/secretagent-128-mp3' },
+            { id: '8', name: 'SomaFM Drone Zone', url: 'https://ice2.somafm.com/dronezone-128-mp3' }
+        ];
+
+        function persistStations(value) {
+            try {
+                localStorage.setItem('retro_stations', JSON.stringify(value));
+                localStorage.setItem(stationListVersionKey, stationListVersion);
+            } catch {}
+        }
+
+        function loadStations() {
+            try {
+                const rawSaved = localStorage.getItem('retro_stations');
+                const saved = rawSaved ? JSON.parse(rawSaved) : null;
+                if (!Array.isArray(saved)) {
+                    const freshStations = defaultStations.map(station => ({ ...station }));
+                    persistStations(freshStations);
+                    return freshStations;
+                }
+                if (localStorage.getItem(stationListVersionKey) === stationListVersion) return saved;
+
+                const previousDefaults = new Map(previousDefaultStations.map(station => [
+                    `${station.id}\u0000${station.url}`,
+                    station
+                ]));
+                const retainedStations = [];
+                const previousFavorites = new Set();
+                saved.forEach(station => {
+                    const previousDefault = previousDefaults.get(`${station.id}\u0000${station.url}`);
+                    if (previousDefault) {
+                        if (station.fav) previousFavorites.add(previousDefault.name);
+                    } else {
+                        retainedStations.push(station);
+                    }
+                });
+                const migratedStations = [
+                    ...defaultStations.map(station => ({
+                        ...station,
+                        fav: previousFavorites.has(station.name)
+                    })),
+                    ...retainedStations
+                ];
+                persistStations(migratedStations);
+                return migratedStations;
+            } catch {
+                return defaultStations.map(station => ({ ...station }));
+            }
+        }
+
+        let stations = loadStations();
+        let currentStationId = null;
         let isPlaying = false;
+        let volume = 70;
+
+        function loadSelectedStationId() {
+            try {
+                return localStorage.getItem('retro_selected_station');
+            } catch {
+                return null;
+            }
+        }
+
+        function saveSelectedStationId() {
+            try {
+                if (currentStationId) {
+                    localStorage.setItem('retro_selected_station', currentStationId);
+                } else {
+                    localStorage.removeItem('retro_selected_station');
+                }
+            } catch {}
+        }
+
+        function sortedStations() {
+            return [...stations].sort((a, b) => Number(Boolean(b.fav)) - Number(Boolean(a.fav)));
+        }
+
+        function selectedStation() {
+            return stations.find(station => station.id === currentStationId) || null;
+        }
 
         function updateClock() {
-            const now = new Date();
-            document.getElementById('clock').innerText = now.toTimeString().substr(0, 5);
+            document.getElementById('clock').textContent = new Date().toTimeString().slice(0, 5);
         }
         setInterval(updateClock, 1000);
         updateClock();
 
+        function updateDisplay() {
+            const ordered = sortedStations();
+            const station = selectedStation();
+            const index = ordered.findIndex(item => item.id === currentStationId);
+            document.getElementById('nowPlaying').textContent = station ? station.name : 'Bir istasyon seç';
+            document.getElementById('status').textContent = isPlaying
+                ? 'Çalıyor'
+                : station ? 'Hazır · seçili istasyon' : 'Hazır';
+            document.getElementById('stationValue').textContent = ordered.length
+                ? `${String(Math.max(index, 0) + 1).padStart(2, '0')}/${String(ordered.length).padStart(2, '0')}`
+                : '00/00';
+            const stationProgress = ordered.length > 1 ? Math.max(index, 0) / (ordered.length - 1) : 0;
+            const stationKnob = document.getElementById('stationKnob');
+            stationKnob.style.setProperty('--rotation', `${-135 + stationProgress * 270}deg`);
+            stationKnob.style.setProperty('--arc', `${stationProgress * 270}deg`);
+            stationKnob.setAttribute('aria-label', station
+                ? `Kanal ${index + 1}: ${station.name}. Döndürerek kanal seç, basarak oynat veya duraklat.`
+                : 'Kanal seçici. Döndürerek kanal seç, basarak oynat veya duraklat.');
+            document.getElementById('volumeValue').textContent = `${volume}%`;
+            const volumeProgress = volume / 100;
+            const volumeKnob = document.getElementById('volumeKnob');
+            volumeKnob.style.setProperty('--rotation', `${-135 + volumeProgress * 270}deg`);
+            volumeKnob.style.setProperty('--arc', `${volumeProgress * 270}deg`);
+            volumeKnob.setAttribute('aria-label', `Ses seviyesi: yüzde ${volume}. Döndürerek ayarla, basarak oynat veya duraklat.`);
+            renderStations();
+        }
+
         function renderStations() {
             const list = document.getElementById('stationList');
-            list.innerHTML = '';
-            const sorted = [...stations].sort((a,b) => b.fav - a.fav);
-
-            sorted.forEach(s => {
-                const isCustom = !defaultStations.some(ds => ds.id === s.id);
+            list.replaceChildren();
+            sortedStations().forEach(station => {
                 const card = document.createElement('div');
-                card.className = 'station-card';
-                card.innerHTML = `
-                    <div class="station-info">
-                        <span class="station-name">♪ ${s.name}</span>
-                    </div>
-                    <div class="actions">
-                        <button class="icon-btn ${s.fav ? 'active' : ''}" onclick="toggleFav('${s.id}')">★</button>
-                        <button class="icon-btn play" onclick="playRadio('${s.id}')">►</button>
-                        ${isCustom ? `<button class="icon-btn" style="color:#ef4444;" onclick="deleteStation('${s.id}')">✕</button>` : ''}
-                    </div>
-                `;
-                list.appendChild(card);
+                card.className = `station-card${station.id === currentStationId ? ' selected' : ''}`;
+
+                const selectButton = document.createElement('button');
+                selectButton.className = 'station-select';
+                selectButton.type = 'button';
+                selectButton.textContent = station.name;
+                selectButton.setAttribute('aria-current', station.id === currentStationId ? 'true' : 'false');
+                selectButton.addEventListener('click', () => selectStation(station.id));
+
+                const favoriteButton = document.createElement('button');
+                favoriteButton.className = `icon-btn${station.fav ? ' active' : ''}`;
+                favoriteButton.type = 'button';
+                favoriteButton.textContent = '★';
+                favoriteButton.setAttribute('aria-label', station.fav ? 'Favorilerden çıkar' : 'Favorilere ekle');
+                favoriteButton.setAttribute('aria-pressed', String(Boolean(station.fav)));
+                favoriteButton.addEventListener('click', () => toggleFav(station.id));
+
+                card.append(selectButton, favoriteButton);
+                if (!defaultStations.some(defaultStation => defaultStation.id === station.id)) {
+                    const deleteButton = document.createElement('button');
+                    deleteButton.className = 'icon-btn';
+                    deleteButton.type = 'button';
+                    deleteButton.textContent = '×';
+                    deleteButton.setAttribute('aria-label', `${station.name} istasyonunu sil`);
+                    deleteButton.addEventListener('click', () => deleteStation(station.id));
+                    card.append(deleteButton);
+                }
+                list.append(card);
             });
         }
 
+        function selectStation(id) {
+            const station = stations.find(item => item.id === id);
+            if (!station) return;
+            currentStationId = station.id;
+            saveSelectedStationId();
+            if (isPlaying) {
+                playRadio(id);
+            } else {
+                updateDisplay();
+            }
+        }
+
+        function changeStation(steps) {
+            const ordered = sortedStations();
+            if (!ordered.length || !steps) return;
+            const currentIndex = ordered.findIndex(station => station.id === currentStationId);
+            const baseIndex = currentIndex < 0 ? 0 : currentIndex;
+            const nextIndex = ((baseIndex + steps) % ordered.length + ordered.length) % ordered.length;
+            selectStation(ordered[nextIndex].id);
+        }
+
+        function changeVolume(steps) {
+            if (!steps) return;
+            volume = Math.max(0, Math.min(100, volume + steps * 5));
+            if (window.AndroidBridge) window.AndroidBridge.setVolume(volume / 100);
+            updateDisplay();
+        }
+
         function playRadio(id) {
-            const s = stations.find(x => x.id === id);
-            if (!s) return;
-            currentStation = s;
+            const station = stations.find(item => item.id === id);
+            if (!station) return;
+            currentStationId = station.id;
+            saveSelectedStationId();
             isPlaying = true;
-            document.getElementById('status').innerText = 'Çalıyor: ' + s.name;
-            document.getElementById('playPauseBtn').innerText = '║║ DURAKLAT';
-            if (window.AndroidBridge) window.AndroidBridge.playStream(s.url, s.name);
+            if (window.AndroidBridge) window.AndroidBridge.playStream(station.url, station.name);
+            updateDisplay();
         }
 
         function togglePlayPause() {
-            if (!currentStation && stations.length > 0) {
-                playRadio(stations[0].id);
-                return;
-            }
             if (isPlaying) {
                 isPlaying = false;
-                document.getElementById('status').innerText = 'Duraklatıldı';
-                document.getElementById('playPauseBtn').innerText = '► OYNAT';
                 if (window.AndroidBridge) window.AndroidBridge.pauseStream();
-            } else if (currentStation) {
-                isPlaying = true;
-                document.getElementById('status').innerText = 'Çalıyor: ' + currentStation.name;
-                document.getElementById('playPauseBtn').innerText = '║║ DURAKLAT';
-                if (window.AndroidBridge) window.AndroidBridge.playStream(currentStation.url, currentStation.name);
+                updateDisplay();
+                document.getElementById('status').textContent = 'Duraklatıldı';
+                return;
             }
+            const station = selectedStation() || sortedStations()[0];
+            if (station) playRadio(station.id);
         }
 
         function stopRadio() {
             isPlaying = false;
-            currentStation = null;
-            document.getElementById('status').innerText = 'Durduruldu';
-            document.getElementById('playPauseBtn').innerText = '► OYNAT';
             if (window.AndroidBridge) window.AndroidBridge.stopStream();
+            updateDisplay();
+            document.getElementById('status').textContent = 'Durduruldu';
+        }
+
+        function startRadioForPower() {
+            const station = selectedStation() || sortedStations()[0];
+            if (station) playRadio(station.id);
         }
 
         function toggleFav(id) {
-            stations = stations.map(s => s.id === id ? {...s, fav: !s.fav} : s);
+            stations = stations.map(station => station.id === id
+                ? { ...station, fav: !station.fav }
+                : station);
             saveAndRender();
         }
 
-        function deleteStation(id) {
-            stations = stations.filter(s => s.id !== id);
-            saveAndRender();
+        function openModal() {
+            document.getElementById('modal').classList.add('open');
+            document.getElementById('newTitle').focus();
         }
 
-        function openModal() { document.getElementById('modal').style.display = 'flex'; }
-        function closeModal() { document.getElementById('modal').style.display = 'none'; }
+        function closeModal() {
+            document.getElementById('modal').classList.remove('open');
+        }
 
         function addCustomStation() {
             const name = document.getElementById('newTitle').value.trim();
             const url = document.getElementById('newUrl').value.trim();
-            if (!name || !url) return;
+            const titleInput = document.getElementById('newTitle');
+            const urlInput = document.getElementById('newUrl');
+            const validUrl = /^https?:\/\/\S+$/i.test(url);
+            titleInput.setCustomValidity(name ? '' : 'İstasyon adı girin.');
+            urlInput.setCustomValidity(validUrl ? '' : 'Geçerli bir HTTP(S) yayın adresi girin.');
+            if (!name || !validUrl) {
+                (name ? urlInput : titleInput).reportValidity();
+                return;
+            }
             stations.push({ id: Date.now().toString(), name, url, fav: false });
             saveAndRender();
             closeModal();
@@ -169,11 +526,96 @@
         }
 
         function saveAndRender() {
-            localStorage.setItem('retro_stations', JSON.stringify(stations));
-            renderStations();
+            persistStations(stations);
+            updateDisplay();
         }
 
-        renderStations();
+        function setupKnob(element, onRotate, getThreshold = () => 18) {
+            let lastAngle = null;
+            let accumulated = 0;
+            let dragged = false;
+            let suppressClick = false;
+
+            element.addEventListener('pointerdown', event => {
+                if (event.button !== 0 && event.pointerType !== 'touch') return;
+                const bounds = element.getBoundingClientRect();
+                lastAngle = Math.atan2(
+                    event.clientY - bounds.top - bounds.height / 2,
+                    event.clientX - bounds.left - bounds.width / 2
+                ) * 180 / Math.PI;
+                accumulated = 0;
+                dragged = false;
+                element.setPointerCapture(event.pointerId);
+            });
+            element.addEventListener('pointermove', event => {
+                if (lastAngle === null) return;
+                const bounds = element.getBoundingClientRect();
+                const angle = Math.atan2(
+                    event.clientY - bounds.top - bounds.height / 2,
+                    event.clientX - bounds.left - bounds.width / 2
+                ) * 180 / Math.PI;
+                const delta = ((angle - lastAngle + 540) % 360) - 180;
+                lastAngle = angle;
+                accumulated += delta;
+                const threshold = getThreshold();
+                const steps = Math.trunc(accumulated / threshold);
+                if (steps) {
+                    dragged = true;
+                    accumulated -= steps * threshold;
+                    onRotate(steps);
+                }
+            });
+            const endDrag = () => {
+                if (dragged) suppressClick = true;
+                lastAngle = null;
+                accumulated = 0;
+            };
+            element.addEventListener('pointerup', endDrag);
+            element.addEventListener('pointercancel', endDrag);
+            element.addEventListener('click', event => {
+                if (suppressClick) {
+                    event.preventDefault();
+                    suppressClick = false;
+                    return;
+                }
+                togglePlayPause();
+            });
+            element.addEventListener('keydown', event => {
+                if (event.key === 'ArrowUp' || event.key === 'ArrowRight') {
+                    event.preventDefault();
+                    onRotate(1);
+                } else if (event.key === 'ArrowDown' || event.key === 'ArrowLeft') {
+                    event.preventDefault();
+                    onRotate(-1);
+                }
+            });
+        }
+
+        function deleteStation(id) {
+            stations = stations.filter(station => station.id !== id);
+            if (currentStationId === id) {
+                currentStationId = null;
+                saveSelectedStationId();
+                if (isPlaying) {
+                    isPlaying = false;
+                    if (window.AndroidBridge) window.AndroidBridge.stopStream();
+                }
+            }
+            saveAndRender();
+        }
+
+        setupKnob(document.getElementById('volumeKnob'), changeVolume);
+        setupKnob(
+            document.getElementById('stationKnob'),
+            changeStation,
+            () => 360 / Math.max(sortedStations().length, 1)
+        );
+        if (window.AndroidBridge) window.AndroidBridge.setVolume(volume / 100);
+        const savedStationId = loadSelectedStationId();
+        currentStationId = sortedStations().find(station => station.id === savedStationId)?.id
+            || sortedStations()[0]?.id
+            || null;
+        updateDisplay();
     </script>
 </body>
 </html>

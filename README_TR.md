@@ -21,8 +21,14 @@ Android Studio'da bu klasörü açıp Gradle senkronizasyonunu tamamla. Ardında
 - Örnek istasyonlar
 - Yayın URL'si ile özel istasyon ekleme
 - Favori işaretleme
+- Şarja takıldığında görünür uygulamada son seçili istasyonu otomatik başlatma ve ekranı açık tutma
+- Şarj kesildiğinde yayını durdurup uygulama görevini kapatma
 - İlk prototipte uygulama açıkken yayın çalma
 - Reklam/analitik SDK'sı yok
+
+Android'in arka planda uygulama açma kısıtlamaları nedeniyle uygulama ekranda değilken şarja takıldığında
+otomatik açılış garanti edilemez. Bu durumda Android bildirimi gösterilir; radyoyu başlatmak için bildirime
+dokunmak gerekir. Bunun çalışması için uygulama bildirimlerine izin verilmelidir.
 
 Not: Hazır istasyonların yayın adresleri zaman içinde değişebilir; bir istasyon açılmazsa başka bir yayın URL'si eklenebilir.
 Bu ilk prototip test amaçlıdır; ekran kapalıyken kesintisiz çalma ve telefon açılışında otomatik başlatma henüz tamamlanmış özellikler değildir. Bunlar sonraki sürümde Android medya servisi ve Xiaomi otomatik başlatma izinleriyle eklenmelidir.
