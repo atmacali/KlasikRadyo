@@ -4,32 +4,9 @@ Bu proje Xiaomi 13 gibi Android telefonlar için hazırlanmış bir başlangıç
 Uygulama içinde reklam SDK'sı veya üyelik sistemi yoktur. Radyo yayınlarının kendi reklamları olabilir.
 
 ## APK oluşturma ve tekrar tekrar güncelleme
-GitHub Actions artık her çalıştırmada yeni debug imzası üretmek yerine, senin sakladığın aynı release anahtarıyla imzalı APK oluşturur. Bir kez anahtar üretip GitHub deposuna Actions secret olarak ekle:
+GitHub Actions > **Build Android APK > Run workflow** ile APK'yı oluştur; secret, anahtar üretme veya GitHub ayarı gerekmez. **Artifacts > app-debug** dosyasını indir, ZIP'i aç ve `app-debug.apk` dosyasını telefona yükle. Her Actions çalıştırması ve Android Studio debug derlemesi depodaki aynı sabit test anahtarını kullanır; böylece sonraki kurulumlar uygulamanın üzerine güncellenebilir.
 
-1. Bilgisayarında (Android Studio/Java kurulu olmalı) şu komutla anahtar dosyası oluştur. Parola sorulduğunda güçlü bir parola seç; unutma:
-
-   ```powershell
-   keytool -genkeypair -v -keystore .\retroradyo-release.jks -storetype PKCS12 -keyalg RSA -keysize 2048 -validity 10000 -alias retroradyo
-   ```
-
-2. PowerShell'de dosyanın tek satır Base64 değerini üret ve kopyala:
-
-   ```powershell
-   [Convert]::ToBase64String([IO.File]::ReadAllBytes((Resolve-Path .\retroradyo-release.jks)))
-   ```
-
-3. GitHub deposunda **Settings > Secrets and variables > Actions > New repository secret** yolunu açıp şu dört secret'ı ekle:
-   - `ANDROID_KEYSTORE_BASE64` — 2. adımdaki Base64 çıktısı
-   - `ANDROID_KEYSTORE_PASSWORD` — anahtar deposu parolası
-   - `ANDROID_KEY_ALIAS` — `retroradyo`
-   - `ANDROID_KEY_PASSWORD` — anahtar parolası (PKCS12 için depo parolasıyla aynı olabilir)
-
-   Anahtar dosyasını ve parolaları depoya veya sohbete koyma. `.jks`, `.keystore` ve `.p12` dosyaları Git tarafından yok sayılır. Anahtar dosyasını güvenli bir yerde ayrıca yedekle; bu anahtar kaybolursa yeni imzalı APK'lar mevcut kurulumun üzerine güncellenemez.
-
-4. Güncellenmiş kodu GitHub'a gönder. **Actions > Build Android APK > Run workflow** bölümünden aynı branch'i seçip çalıştır.
-5. İşlem bitince **Artifacts** bölümünden `app-release` dosyasını indir, ZIP'i aç ve `app-release.apk` dosyasını telefona yükle. Yeni telefonda yalnızca APK kaynağı için Android'in istediği yükleme iznini ver.
-
-İlk sabit-imzalı APK'ya geçerken telefondaki eski, her Actions çalıştırmasında değişen debug imzası nedeniyle Android bir kez "imza çakışması" gösterebilir. O zaman eski uygulamayı **bir defa** kaldırıp yeni `app-release.apk` dosyasını yükle; kaldırma kayıtlı özel istasyonları/favorileri siler. Bundan sonra hep aynı GitHub workflow'u ve aynı dört secret ile çıkan APK'ları kur; imza çakışması tekrarlanmamalı. Yerel Android Studio debug APK'sı ile GitHub release APK'sını dönüşümlü kurma, imzaları farklıdır.
+Bu sabit anahtar depoda bulunduğundan APK'lar kişisel/test dağıtımı içindir; Play Store veya güvenli üretim dağıtımında kullanma. Daha önce başka imzayla kurulmuş uygulamadan ilk geçişte Android bir kez imza çakışması gösterebilir. Eski uygulamayı **bir defa** kaldırıp yeni APK'yı yükle; kaldırma özel istasyonları/favorileri siler. Bundan sonra aynı GitHub workflow'undan gelen APK'lar için kaldırma gerekmez. Android Studio'dan da yalnızca debug APK üret; release APK farklı imza taşıyabilir.
 
 ## Android Studio ile debug derleme
 Android Studio'da bu klasörü açıp Gradle senkronizasyonunu tamamla. Ardından
