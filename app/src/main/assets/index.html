@@ -298,7 +298,7 @@
         .screensaver .knob-value,
         .screensaver .knob-hint { display: none; }
         .screensaver .knob {
-            border: 1px solid #fff;
+            border: 2px dashed #fff;
             background:
                 radial-gradient(circle, #000 0 80%, transparent 81%),
                 repeating-conic-gradient(from -1deg, #fff 0 2deg, #000 2deg 15deg);
@@ -690,6 +690,7 @@
                 setScreensaverShift(screensaverShiftIndex);
             }
             updateDisplay();
+            try { window.AndroidBridge?.setImmersiveMode?.(screensaverActive); } catch {}
         }
 
         function renderStations() {
