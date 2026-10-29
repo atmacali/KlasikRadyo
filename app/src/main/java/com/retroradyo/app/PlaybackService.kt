@@ -310,11 +310,9 @@ class PlaybackService : MediaSessionService() {
                     if (count > 0) String(buffer, 0, count) else ""
                 }.orEmpty()
                 val response = runCatching { JSONObject(responseText) }.getOrNull()
-                val issueUrl = response?.optString("issueUrl").orEmpty()
-                val success = statusCode == 201 && response?.optBoolean("ok") == true &&
-                    isValidIssueUrl(issueUrl)
+                val success = statusCode == 201 && response?.optBoolean("ok") == true
                 val message = if (success) {
-                    "Kanal ilk kez çaldı; adı ve adresi paylaşıldı."
+                    "Kanal ilk kez çaldı; adı ve adresi herkese açık inceleme dosyasına eklendi."
                 } else {
                     response?.optString("error")?.takeIf { it.isNotBlank() }
                         ?: "Kanal paylaşımı başarısız oldu (HTTP $statusCode). Yeniden denenecek."
@@ -398,17 +396,6 @@ class PlaybackService : MediaSessionService() {
         MessageDigest.getInstance("SHA-256")
             .digest("$name\n$url".toByteArray(Charsets.UTF_8))
             .joinToString("") { byte -> "%02x".format(byte) }
-
-    private fun isValidIssueUrl(value: String): Boolean {
-        val issueUrl = runCatching { android.net.Uri.parse(value) }.getOrNull() ?: return false
-        return issueUrl.scheme == "https" &&
-            issueUrl.host == "github.com" &&
-            issueUrl.pathSegments.size == 4 &&
-            issueUrl.pathSegments[0] == GITHUB_OWNER &&
-            issueUrl.pathSegments[1] == GITHUB_REPO &&
-            issueUrl.pathSegments[2] == "issues" &&
-            issueUrl.pathSegments[3].toLongOrNull() != null
-    }
 
     private fun updateMonitorNotification(isPlaying: Boolean, startForeground: Boolean = false) {
         val openIntent = Intent(this, MainActivity::class.java).apply {
@@ -510,8 +497,6 @@ class PlaybackService : MediaSessionService() {
         const val CHARGE_SCREENSAVER = "charge_screensaver"
         private const val STATION_SUGGESTION_ENDPOINT =
             "https://retroradyo-station-suggestions.klasikradyo-ali.workers.dev/submit"
-        private const val GITHUB_OWNER = "atmacali"
-        private const val GITHUB_REPO = "KlasikRadyo"
         private const val UPLOAD_TIMEOUT_MS = 10_000
         private const val MAX_RESPONSE_CHARS = 8_192
         private const val UPLOAD_RETRY_DELAY_MS = 5 * 60 * 1_000L

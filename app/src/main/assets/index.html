@@ -406,7 +406,7 @@
             <h2 id="modalTitle">Yeni istasyon ekle</h2>
             <input type="text" id="newTitle" class="input-field" placeholder="İstasyon adı" aria-label="İstasyon adı">
             <input type="url" id="newUrl" class="input-field" placeholder="Yayın adresi (http/https)" aria-label="Yayın adresi">
-            <p id="stationShareNotice">Onay verirseniz yeni istasyonun adı ve yayın adresi, ilk kez çalmaya başladığında ortak liste için GitHub kaydı oluşturmak üzere gönderilir. İptal ederseniz yalnızca bu telefona eklenir.</p>
+            <p id="stationShareNotice">Onay verirseniz yeni istasyonun adı ve yayın adresi, ilk kez çaldığında GitHub deposundaki herkese açık inceleme metin dosyasına eklenir. İptal ederseniz yalnızca bu telefona eklenir.</p>
             <div class="modal-actions">
                 <button class="btn btn-primary" type="button" onclick="saveStation()">Kaydet</button>
                 <button class="btn" type="button" onclick="closeModal()">İptal</button>
@@ -1136,7 +1136,7 @@
                 const id = `custom-${Date.now()}-${Math.random().toString(36).slice(2)}`;
                 const shouldShare = Boolean(window.AndroidBridge?.registerStationForUpload) &&
                     window.confirm(
-                        'Bu yeni istasyonun adı ve yayın adresi, ilk kez çalmaya başladığında ortak liste için GitHub kaydı oluşturmak üzere gönderilecek. Kabul ediyorsanız Tamam; yalnızca bu telefona eklemek için İptal seçin.'
+                        'Bu yeni istasyonun adı ve yayın adresi, ilk kez çaldığında GitHub deposundaki herkese açık inceleme metin dosyasına eklenecek. Kabul ediyorsanız Tamam; yalnızca bu telefona eklemek için İptal seçin.'
                     );
                 stations.push({
                     id,
