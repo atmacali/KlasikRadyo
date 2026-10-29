@@ -21,13 +21,14 @@ import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.google.common.util.concurrent.ListenableFuture
+import java.util.ArrayDeque
 
 class MainActivity : Activity() {
 
     private var controllerFuture: ListenableFuture<MediaController>? = null
     private var mediaController: MediaController? = null
     private var pendingVolume: Float? = null
-    private var pendingPlayerAction: ((MediaController) -> Unit)? = null
+    private val pendingPlayerActions = ArrayDeque<(MediaController) -> Unit>()
     private var pageReady = false
     private var pendingPowerAction: String? = null
     private var wasCharging = false
@@ -90,8 +91,9 @@ class MainActivity : Activity() {
                         controller.addListener(playerListener)
                         pendingVolume?.let { controller.volume = it }
                         pendingVolume = null
-                        pendingPlayerAction?.invoke(controller)
-                        pendingPlayerAction = null
+                        while (pendingPlayerActions.isNotEmpty()) {
+                            pendingPlayerActions.removeFirst().invoke(controller)
+                        }
                         syncPlaybackStateToWebView()
                         syncVolumeToWebView()
                         updateKeepScreenOn()
@@ -350,6 +352,15 @@ class MainActivity : Activity() {
         }
 
         @JavascriptInterface
+        fun stopAndSyncPlaylist(stationsJson: String, selectedStationId: String) {
+            dispatchPlayerAction { controller ->
+                controller.pause()
+                controller.stop()
+                setStationPlaylist(controller, stationsJson, selectedStationId, startPlayback = false)
+            }
+        }
+
+        @JavascriptInterface
         fun getSelectedStationId(): String {
             return getSharedPreferences(PLAYBACK_PREFERENCES, MODE_PRIVATE)
                 .getString(SELECTED_STATION_KEY, "")
@@ -475,6 +486,12 @@ class MainActivity : Activity() {
             val mediaItems = buildStationMediaItems(stationsJson)
             if (mediaItems.isEmpty()) {
                 if (startPlayback) controller.stop()
+                controller.clearMediaItems()
+                getSharedPreferences(PLAYBACK_PREFERENCES, MODE_PRIVATE)
+                    .edit()
+                    .putString(SELECTED_STATION_KEY, "")
+                    .putString(STATION_PLAYLIST_KEY, "[]")
+                    .apply()
                 return
             }
 
@@ -568,7 +585,7 @@ class MainActivity : Activity() {
                     e.printStackTrace()
                 }
             } else {
-                pendingPlayerAction = action
+                pendingPlayerActions.addLast(action)
             }
         }
     }

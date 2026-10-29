@@ -1145,12 +1145,15 @@
                     url,
                     fav: false
                 });
-                saveAndRender();
+                currentStationId = id;
+                persistStations(stations);
+                persistStationOrder();
                 if (shouldShare &&
                     !window.AndroidBridge.registerStationForUpload(id, name, url)
                 ) {
                     setCatalogStatus('İstasyon kaydedildi ancak otomatik paylaşım kuyruğa eklenemedi.', true);
                 }
+                playRadio(id);
                 closeModal();
                 return;
             }
@@ -1380,20 +1383,31 @@
                 ];
                 persistCatalogState();
             }
+            const previousOrder = sortedStations();
+            const deletedIndex = previousOrder.findIndex(station => station.id === id);
             const wasSelected = currentStationId === id;
             const wasPlaying = wasSelected && isPlaying;
             stations = stations.filter(station => station.id !== id);
             if (wasSelected) {
-                currentStationId = stations[0]?.id || null;
+                const nextStation = previousOrder.length > 1
+                    ? previousOrder[(deletedIndex + 1 + previousOrder.length) % previousOrder.length]
+                    : null;
+                currentStationId = nextStation && nextStation.id !== id ? nextStation.id : null;
                 saveSelectedStationId();
-                if (wasPlaying) {
-                    isPlaying = false;
-                    if (window.AndroidBridge) {
-                        window.AndroidBridge.stopStream();
-                    }
-                }
+                isPlaying = false;
             }
-            saveAndRender();
+            persistStations(stations);
+            persistStationOrder();
+            if (wasPlaying && window.AndroidBridge?.stopAndSyncPlaylist) {
+                window.AndroidBridge.stopAndSyncPlaylist(
+                    JSON.stringify(sortedStations()),
+                    currentStationId || ''
+                );
+            } else {
+                if (wasPlaying && window.AndroidBridge) window.AndroidBridge.stopStream();
+                syncNativePlaylist();
+            }
+            updateDisplay();
         }
 
         setupKnob(document.getElementById('volumeKnob'), changeVolume);

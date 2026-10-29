@@ -17,6 +17,7 @@ Android Studio'da bu klasörü açıp Gradle senkronizasyonunu tamamla. Ardında
 - Örnek istasyonlar
 - Yayın URL'si ile özel istasyon ekleme
 - Her kanalı düzenleme, silme ve varsayılanları geri yükleme
+- Yeni istasyon kaydedilince seçilip doğrudan çalmaya başlar; aktif kanal silinirse çalma durur ve sonraki kanal seçili kalır
 - İstasyon ekleme, durdurma ve varsayılanları geri yükleme komutları **Menü** içinde
 - “AMOLED EKRAN KORUYUCU” düğmesiyle saat, kanal adı ve iki çevirmeli kontrol dışında kalan arayüzü gizleme; çıkmak için kanal adına dokunma
 - Kanal düğmesini 90° çevirince bir önceki/sonraki kanala geçme; her adımda açı sayacını sıfırlama ve dokunmayı tıklamadan ayırma
