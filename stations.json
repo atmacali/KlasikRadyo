@@ -73,5 +73,11 @@
       "name": "Power Türk Taptaze",
       "url": "https://listen.powerapp.com.tr/powerturktaptaze/mpeg/icecast.audio"
     }
+        {
+      "id": "13",
+      "defaultKey": "13",
+      "name": "Kafa Radyo",
+      "url": "https://moondigitaledge2.radyotvonline.net/kafaradyo/playlist.m3u8"
+    }
   ]
 }
