@@ -396,12 +396,7 @@
                 <button class="btn" type="button" onclick="openRestoreModal()">VARSAYILANLARI GERİ YÜKLE</button>
                 <button class="btn" type="button" onclick="fetchStationCatalog()">KANAL LİSTESİNİ GÜNCELLE</button>
                 <p class="catalog-source">Kaynak: atmacali/KlasikRadyo · stations.json</p>
-                <button class="btn" type="button" onclick="suggestSelectedStation()">SEÇİLİ KANALI GITHUB'A ÖNER</button>
-                <p class="catalog-status" id="catalogStatus" role="status">Kanal önerisi GitHub'da açılır; son göndermeyi siz onaylarsınız.</p>
-                <label for="suggestionWorkerUrl">Cloudflare Worker API adresi</label>
-                <input id="suggestionWorkerUrl" class="input-field" type="url" inputmode="url" placeholder="https://...workers.dev">
-                <button class="btn" type="button" onclick="saveSuggestionWorkerUrl()">API adresini kaydet</button>
-                <button class="btn" id="submitSuggestionButton" type="button" onclick="submitStationSuggestion()">API ile GitHub'a kanal önerisi gönder</button>
+                <p class="catalog-status" id="catalogStatus" role="status">Ortak kanal listesi gerektiğinde yenilenebilir.</p>
             </div>
         </details>
     </main>
@@ -411,6 +406,7 @@
             <h2 id="modalTitle">Yeni istasyon ekle</h2>
             <input type="text" id="newTitle" class="input-field" placeholder="İstasyon adı" aria-label="İstasyon adı">
             <input type="url" id="newUrl" class="input-field" placeholder="Yayın adresi (http/https)" aria-label="Yayın adresi">
+            <p id="stationShareNotice">Onay verirseniz yeni istasyonun adı ve yayın adresi, ilk kez çalmaya başladığında ortak liste için GitHub kaydı oluşturmak üzere gönderilir. İptal ederseniz yalnızca bu telefona eklenir.</p>
             <div class="modal-actions">
                 <button class="btn btn-primary" type="button" onclick="saveStation()">Kaydet</button>
                 <button class="btn" type="button" onclick="closeModal()">İptal</button>
@@ -436,7 +432,6 @@
         const catalogDeletedKey = 'retro_catalog_deleted';
         const catalogArchivedKey = 'retro_catalog_archived';
         const stationOrderKey = 'retro_station_order';
-        const suggestionWorkerUrlKey = 'retro_suggestion_worker_url';
         const defaultStations = [
             { id: '1', defaultKey: '1', name: 'Radyo Fenomen 100.4 FM', url: 'https://live.radyofenomen.com/fenomen/128/icecast.audio', fav: false },
             { id: '2', defaultKey: '2', name: 'Süper FM 90.8', url: 'https://25593.live.streamtheworld.com:443/SUPER_FM.mp3', fav: false },
@@ -851,7 +846,6 @@
             ]);
             archivedById.forEach((station, id) => catalogDeletedIds.add(id));
 
-            const remoteIds = new Set(remoteStations.map(station => station.id));
             const customCollision = remoteStations.find(station => {
                 const local = localById.get(station.id);
                 return local && !isCatalogStation(local);
@@ -859,35 +853,120 @@
             if (customCollision) {
                 throw new Error(`“${customCollision.name}” kanal kimliği özel bir kanal ile çakışıyor; hiçbir değişiklik uygulanmadı.`);
             }
+            const duplicateRemote = remoteStations.find((station, index) =>
+                remoteStations.some((other, otherIndex) =>
+                    otherIndex < index && (
+                        other.id === station.id ||
+                        (station.defaultKey && other.defaultKey === station.defaultKey)
+                    )
+                )
+            );
+            if (duplicateRemote) {
+                throw new Error(`GitHub kanal listesinde “${duplicateRemote.name}” için yinelenen kanal kimliği veya adresi var.`);
+            }
             knownIds.forEach(id => {
-                if (!localById.has(id)) catalogDeletedIds.add(id);
+                const known = oldBaselineById.get(id) ||
+                    defaultStations.find(station => station.id === id);
+                const hasIdentityMatch = known && (
+                    [...stations, ...archivedById.values()].some(station =>
+                        isCatalogStation(station) &&
+                        ((known.defaultKey && station.defaultKey === known.defaultKey) ||
+                            canonicalStationUrl(station.url) === canonicalStationUrl(known.url))
+                    )
+                );
+                if (!localById.has(id) && !archivedById.has(id) && !hasIdentityMatch) {
+                    catalogDeletedIds.add(id);
+                }
             });
+            const matchedLocalByRemoteId = new Map();
+            const matchedLocalIds = new Set();
+            remoteStations.forEach(remote => {
+                const urlKey = canonicalStationUrl(remote.url);
+                const local = stations.find(station => {
+                    if (!isCatalogStation(station) || matchedLocalIds.has(station.id)) return false;
+                    if (station.id === remote.id) return true;
+                    if (remote.defaultKey && station.defaultKey === remote.defaultKey) return true;
+                    const baseline = oldBaselineById.get(station.id) ||
+                        defaultStations.find(item => item.id === station.id);
+                    return canonicalStationUrl(station.url) === urlKey ||
+                        (baseline && canonicalStationUrl(baseline.url) === urlKey);
+                });
+                if (local) {
+                    matchedLocalByRemoteId.set(remote.id, local);
+                    matchedLocalIds.add(local.id);
+                }
+            });
+            const remappedIds = new Map(
+                [...matchedLocalByRemoteId.entries()]
+                    .filter(([remoteId, local]) => remoteId !== local.id)
+                    .map(([remoteId, local]) => [local.id, remoteId])
+            );
             const nextStations = stations.filter(station => {
-                if (!isCatalogStation(station) || remoteIds.has(station.id)) return true;
+                if (!isCatalogStation(station)) return true;
+                if (matchedLocalIds.has(station.id)) return false;
                 archivedById.set(station.id, { ...station, catalogManaged: true });
                 catalogDeletedIds.add(station.id);
                 return false;
-            }).filter(station => !isCatalogStation(station) || !catalogDeletedIds.has(station.id));
+            });
+            let selectedIdRemapped = false;
+            remappedIds.forEach((remoteId, localId) => {
+                if (catalogDeletedIds.delete(localId)) catalogDeletedIds.add(remoteId);
+                if (currentStationId === localId) {
+                    currentStationId = remoteId;
+                    selectedIdRemapped = true;
+                }
+                stationOrder = stationOrder.map(id => id === localId ? remoteId : id);
+                const archived = archivedById.get(localId);
+                if (archived) {
+                    archivedById.delete(localId);
+                    archivedById.set(remoteId, { ...archived, id: remoteId });
+                }
+            });
+            if (selectedIdRemapped) saveSelectedStationId();
 
             remoteStations.forEach(remote => {
-                const local = localById.get(remote.id);
-                const archived = archivedById.get(remote.id);
+                const local = matchedLocalByRemoteId.get(remote.id);
+                const archived = archivedById.get(remote.id) ||
+                    archivedCatalogStations.find(station =>
+                        (remote.defaultKey && station.defaultKey === remote.defaultKey) ||
+                        canonicalStationUrl(station.url) === canonicalStationUrl(remote.url)
+                    );
                 const old = oldBaselineById.get(remote.id) ||
-                    defaultStations.find(station => station.id === remote.id);
-                if (catalogDeletedIds.has(remote.id)) {
-                    archivedById.set(remote.id, mergeCatalogEntry(remote, archived || local, old));
+                    defaultStations.find(station => station.id === remote.id) ||
+                    (local && oldBaselineById.get(local.id));
+                const wasDeleted = catalogDeletedIds.has(remote.id) ||
+                    Boolean(local && catalogDeletedIds.has(local.id)) ||
+                    Boolean(archived && catalogDeletedIds.has(archived.id));
+                if (wasDeleted) {
+                    const deletedEntry = mergeCatalogEntry(remote, archived || local, old);
+                    archivedById.set(remote.id, deletedEntry);
+                    catalogDeletedIds.add(remote.id);
                     return;
                 }
                 nextStations.push(mergeCatalogEntry(remote, local, old));
                 archivedById.delete(remote.id);
+                if (archived) archivedById.delete(archived.id);
             });
 
             stations = nextStations;
             archivedCatalogStations = [...archivedById.values()];
-            catalogBaseline = remoteStations.map(({ id, name, url }) => ({ id, name, url }));
+            catalogBaseline = remoteStations.map(({ id, name, url, defaultKey }) => ({
+                id,
+                name,
+                url,
+                defaultKey
+            }));
             if (!persistCatalogState()) throw new Error('Kanal listesi cihaza kaydedilemedi.');
             saveAndRender();
             return remoteStations.length;
+        }
+
+        function canonicalStationUrl(value) {
+            try {
+                return new URL(value).href;
+            } catch {
+                return value;
+            }
         }
 
         function mergeCatalogEntry(remote, local, old) {
@@ -926,23 +1005,6 @@
             } finally {
                 button.disabled = false;
             }
-        }
-
-        function suggestSelectedStation() {
-            const station = selectedStation();
-            if (!station) {
-                setCatalogStatus('Önce önerilecek bir kanal seçin.', true);
-                return;
-            }
-            if (!window.AndroidBridge || typeof window.AndroidBridge.openStationSuggestion !== 'function') {
-                setCatalogStatus('GitHub öneri formu yalnızca Android uygulamasında açılabilir.', true);
-                return;
-            }
-            if (!window.AndroidBridge.openStationSuggestion(station.name, station.url)) {
-                setCatalogStatus('GitHub formu açılamadı. Tarayıcıyı veya internet bağlantısını kontrol edin.', true);
-                return;
-            }
-            setCatalogStatus('GitHub formu açıldı. Kanal bilgilerini gözden geçirip GitHub’da “Submit new issue” düğmesine siz basın.');
         }
 
         function selectStation(id) {
@@ -1019,6 +1081,8 @@
             document.getElementById('modalTitle').textContent = station ? 'İstasyonu düzenle' : 'Yeni istasyon ekle';
             document.getElementById('newTitle').value = station?.name || '';
             document.getElementById('newUrl').value = station?.url || '';
+            document.getElementById('stationShareNotice').hidden =
+                Boolean(station) || !window.AndroidBridge?.registerStationForUpload;
             document.getElementById('newTitle').setCustomValidity('');
             document.getElementById('newUrl').setCustomValidity('');
             document.getElementById('modal').classList.add('open');
@@ -1069,13 +1133,26 @@
                     station.urlOverride = Boolean(baseline && url !== baseline.url);
                 }
             } else {
+                const id = `custom-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+                const shouldShare = Boolean(window.AndroidBridge?.registerStationForUpload) &&
+                    window.confirm(
+                        'Bu yeni istasyonun adı ve yayın adresi, ilk kez çalmaya başladığında ortak liste için GitHub kaydı oluşturmak üzere gönderilecek. Kabul ediyorsanız Tamam; yalnızca bu telefona eklemek için İptal seçin.'
+                    );
                 stations.push({
-                    id: `custom-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+                    id,
                     defaultKey: null,
                     name,
                     url,
                     fav: false
                 });
+                saveAndRender();
+                if (shouldShare &&
+                    !window.AndroidBridge.registerStationForUpload(id, name, url)
+                ) {
+                    setCatalogStatus('İstasyon kaydedildi ancak otomatik paylaşım kuyruğa eklenemedi.', true);
+                }
+                closeModal();
+                return;
             }
             saveAndRender();
             closeModal();
@@ -1136,6 +1213,10 @@
             updateDisplay();
         }
 
+        function showStationUploadStatus(message, isError) {
+            setCatalogStatus(message, Boolean(isError));
+        }
+
         function setVolumeFromNative(savedVolume) {
             volume = Math.round(Math.max(0, Math.min(1, Number(savedVolume) || 0)) * 100);
             updateDisplay();
@@ -1183,74 +1264,6 @@
                 }
                 updateDisplay();
             });
-            document.getElementById('suggestionWorkerUrl').value =
-                localStorage.getItem(suggestionWorkerUrlKey) || '';
-        }
-
-        function saveSuggestionWorkerUrl() {
-            const input = document.getElementById('suggestionWorkerUrl');
-            const rawUrl = input.value.trim();
-            if (rawUrl) {
-                try {
-                    const parsed = new URL(rawUrl);
-                    if (parsed.protocol !== 'https:' || !parsed.hostname ||
-                        parsed.username || parsed.password || parsed.search || parsed.hash
-                    ) throw new Error('Invalid Worker URL');
-                    if (parsed.pathname === '/') parsed.pathname = '/submit';
-                    if (parsed.pathname !== '/submit') throw new Error('Invalid Worker endpoint');
-                    localStorage.setItem(suggestionWorkerUrlKey, parsed.href);
-                } catch {
-                    setCatalogStatus('HTTPS biçimindeki geçerli Cloudflare Worker adresini girin.', true);
-                    return;
-                }
-            } else {
-                localStorage.removeItem(suggestionWorkerUrlKey);
-            }
-            setCatalogStatus(rawUrl
-                ? 'Worker API adresi bu cihazda kaydedildi.'
-                : 'Worker API adresi kaldırıldı.');
-        }
-
-        function setStationSuggestionResult(success, message, issueUrl) {
-            const status = document.getElementById('catalogStatus');
-            status.replaceChildren(document.createTextNode(message));
-            if (success && issueUrl) {
-                const link = document.createElement('a');
-                link.href = issueUrl;
-                link.textContent = ' GitHub önerisini görüntüle';
-                link.addEventListener('click', event => {
-                    event.preventDefault();
-                    if (!window.AndroidBridge?.openStationIssue?.(issueUrl)) {
-                        setCatalogStatus('GitHub issue bağlantısı açılamadı.', true);
-                    }
-                });
-                status.append(link);
-            }
-            status.style.color = success ? '#aaa' : '#ccc';
-            document.getElementById('submitSuggestionButton').disabled = false;
-        }
-
-        function submitStationSuggestion() {
-            const station = selectedStation();
-            const workerUrl = localStorage.getItem(suggestionWorkerUrlKey);
-            if (!station) {
-                setCatalogStatus('Önce önerilecek bir kanal seçin.', true);
-                return;
-            }
-            if (!workerUrl) {
-                setCatalogStatus('Önce Cloudflare Worker API adresini kaydedin.', true);
-                return;
-            }
-            if (!window.confirm(`“${station.name}” kanalının adı ve yayın adresi GitHub deposunda bir issue olarak yayınlanacak. Gönderilsin mi?`)) {
-                return;
-            }
-            document.getElementById('submitSuggestionButton').disabled = true;
-            setCatalogStatus('İstasyon önerisi gönderiliyor…');
-            if (!window.AndroidBridge || typeof window.AndroidBridge.submitStationSuggestion !== 'function') {
-                setStationSuggestionResult(false, 'API gönderimi yalnızca Android uygulamasında desteklenir.');
-                return;
-            }
-            window.AndroidBridge.submitStationSuggestion(workerUrl, station.name, station.url);
         }
 
         function resumeLastStationOnLaunch() {

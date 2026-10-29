@@ -5,3 +5,4 @@ local.properties
 *.keystore
 *.p12
 !app/retroradyo-debug.p12
+worker/.wrangler/
