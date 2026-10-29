@@ -9,6 +9,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
+import android.net.Uri
 import android.os.BatteryManager
 import android.os.Build
 import android.os.Handler
@@ -20,6 +21,7 @@ import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
+import androidx.media3.common.MimeTypes
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.MediaSession
@@ -220,10 +222,14 @@ class PlaybackService : MediaSessionService() {
                 val name = station.optString("name")
                 val url = station.optString("url")
                 if (id.isBlank() || name.isBlank() || url.isBlank()) continue
+                val mediaItemBuilder = MediaItem.Builder()
+                    .setMediaId(id)
+                    .setUri(url)
+                if (Uri.parse(url).lastPathSegment?.endsWith(".m3u8", ignoreCase = true) == true) {
+                    mediaItemBuilder.setMimeType(MimeTypes.APPLICATION_M3U8)
+                }
                 add(
-                    MediaItem.Builder()
-                        .setMediaId(id)
-                        .setUri(url)
+                    mediaItemBuilder
                         .setMediaMetadata(MediaMetadata.Builder().setTitle(name).build())
                         .build()
                 )
