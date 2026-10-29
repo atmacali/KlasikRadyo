@@ -3,5 +3,6 @@
     <string name="monitor_notification_title">Retro Radyo çalışıyor</string>
     <string name="monitor_notification_waiting">Şarj bağlantısı bekleniyor. Açmak için dokunun.</string>
     <string name="monitor_notification_charging">Şarj bağlı; radyo başlatılıyor.</string>
+    <string name="monitor_notification_charge_disabled">Şarj bağlı; otomatik radyo başlatma kapalı.</string>
     <string name="monitor_notification_playing">Radyo çalıyor; açmak için dokunun.</string>
 </resources>

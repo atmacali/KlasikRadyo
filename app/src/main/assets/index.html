@@ -110,6 +110,38 @@
         .toolbar { display: flex; gap: 10px; margin-bottom: 25px; }
         .restore-row { margin: -12px 0 25px; }
         .screensaver-toggle { width: 100%; margin: 0 0 25px; }
+        .settings-menu {
+            margin: 0 0 24px;
+            border: 1px solid #272d35;
+            border-radius: 12px;
+            background: #101216;
+        }
+        .settings-menu summary {
+            padding: 15px 16px;
+            color: #c1cad5;
+            font-size: 13px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            cursor: pointer;
+        }
+        .settings-options { display: grid; gap: 1px; padding: 0 14px 12px; }
+        .setting-row {
+            display: flex;
+            min-height: 52px;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 8px 2px;
+            border-top: 1px solid #272d35;
+            color: #c1cad5;
+            font-size: 13px;
+        }
+        .setting-row input {
+            width: 22px;
+            height: 22px;
+            flex: 0 0 auto;
+            accent-color: #39a77b;
+        }
         .btn {
             min-height: 48px;
             padding: 12px 16px;
@@ -224,7 +256,8 @@
         .screensaver .section-title,
         .screensaver .station-list,
         .screensaver .toolbar,
-        .screensaver .restore-row { display: none; }
+        .screensaver .restore-row,
+        .screensaver .settings-menu { display: none; }
         .screensaver .header { margin: 0 0 28px; }
         .screensaver .clock { margin: 0 0 8px; }
         .screensaver .now-playing {
@@ -281,6 +314,23 @@
         <div class="restore-row">
             <button class="btn" type="button" onclick="openRestoreModal()">VARSAYILANLARI GERİ YÜKLE</button>
         </div>
+        <details class="settings-menu">
+            <summary>MENÜ · OTOMATİK DAVRANIŞ</summary>
+            <div class="settings-options">
+                <label class="setting-row" for="chargeStartSetting">
+                    <span>Şarja takılınca radyoyu başlat</span>
+                    <input id="chargeStartSetting" type="checkbox">
+                </label>
+                <label class="setting-row" for="unplugStopSetting">
+                    <span>Şarjdan çıkarınca durdur ve ekranı kapat</span>
+                    <input id="unplugStopSetting" type="checkbox">
+                </label>
+                <label class="setting-row" for="bluetoothPlaySetting">
+                    <span>Bluetooth bağlanınca son radyoyu çal</span>
+                    <input id="bluetoothPlaySetting" type="checkbox">
+                </label>
+            </div>
+        </details>
     </main>
 
     <div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
@@ -581,11 +631,6 @@
             document.getElementById('status').textContent = 'Durduruldu';
         }
 
-        function startRadioForPower() {
-            const station = selectedStation() || sortedStations()[0];
-            if (station) playRadio(station.id);
-        }
-
         function toggleFav(id) {
             stations = stations.map(station => station.id === id
                 ? { ...station, fav: !station.fav }
@@ -702,6 +747,46 @@
             updateDisplay();
         }
 
+        function setVolumeFromNative(savedVolume) {
+            volume = Math.round(Math.max(0, Math.min(1, Number(savedVolume) || 0)) * 100);
+            updateDisplay();
+        }
+
+        function applyAutomationSettingsFromNative(autoStartOnCharge, stopOnUnplug, bluetoothAutoPlay) {
+            document.getElementById('chargeStartSetting').checked = Boolean(autoStartOnCharge);
+            document.getElementById('unplugStopSetting').checked = Boolean(stopOnUnplug);
+            document.getElementById('bluetoothPlaySetting').checked = Boolean(bluetoothAutoPlay);
+        }
+
+        function setupAutomationSettings() {
+            const bridge = window.AndroidBridge;
+            if (!bridge) return;
+            applyAutomationSettingsFromNative(
+                bridge.getAutoStartOnChargeEnabled(),
+                bridge.getStopOnUnplugEnabled(),
+                bridge.getBluetoothAutoPlayEnabled()
+            );
+            document.getElementById('chargeStartSetting').addEventListener('change', event => {
+                bridge.setAutoStartOnChargeEnabled(event.target.checked);
+            });
+            document.getElementById('unplugStopSetting').addEventListener('change', event => {
+                bridge.setStopOnUnplugEnabled(event.target.checked);
+            });
+            document.getElementById('bluetoothPlaySetting').addEventListener('change', event => {
+                const applied = bridge.setBluetoothAutoPlayEnabled(event.target.checked);
+                if (!applied) {
+                    event.target.checked = bridge.getBluetoothAutoPlayEnabled();
+                }
+            });
+        }
+
+        function resumeLastStationOnLaunch() {
+            const bridge = window.AndroidBridge;
+            const station = selectedStation() || sortedStations()[0];
+            if (!bridge || !station) return;
+            bridge.resumeLastStation(JSON.stringify(sortedStations()), station.id);
+        }
+
         function setupKnob(element, onRotate, getThreshold = () => 18, resetAfterStep = false) {
             let lastAngle = null;
             let accumulated = 0;
@@ -716,7 +801,7 @@
                     event.clientX - bounds.left - bounds.width / 2
                 ) * 180 / Math.PI;
                 accumulated = 0;
-                dragged = false;
+                gestureMoved = false;
                 element.setPointerCapture(event.pointerId);
             });
             element.addEventListener('pointermove', event => {
@@ -803,13 +888,15 @@
             () => 181,
             true
         );
-        if (window.AndroidBridge) window.AndroidBridge.setVolume(volume / 100);
         const savedStationId = loadSelectedStationId();
+        if (window.AndroidBridge && typeof window.AndroidBridge.getSavedVolume === 'function') {
+            volume = Math.round(Math.max(0, Math.min(1, window.AndroidBridge.getSavedVolume())) * 100);
+        }
         currentStationId = sortedStations().find(station => station.id === savedStationId)?.id
             || sortedStations()[0]?.id
             || null;
         updateDisplay();
-        syncNativePlaylist();
+        setupAutomationSettings();
     </script>
 </body>
 </html>
