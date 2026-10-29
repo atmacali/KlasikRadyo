@@ -320,8 +320,11 @@ class PlaybackService : MediaSessionService() {
                 val message = if (success) {
                     "Kanal ilk kez çaldı; adı ve adresi herkese açık inceleme dosyasına eklendi."
                 } else {
-                    response?.optString("error")?.takeIf { it.isNotBlank() }
-                        ?: "Kanal paylaşımı başarısız oldu (HTTP $statusCode). Yeniden denenecek."
+                    val base = response?.optString("error")?.takeIf { it.isNotBlank() }
+                        ?: "Kanal paylaşımı başarısız oldu."
+                    val github = response?.optInt("githubStatus", 0) ?: 0
+                    val detail = if (github > 0) " GitHub HTTP $github." else ""
+                    "$base (HTTP $statusCode).$detail Yeniden denenecek."
                 }
                 mainHandler.post {
                     completeStationUpload(
