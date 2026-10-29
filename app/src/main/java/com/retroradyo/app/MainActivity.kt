@@ -2,9 +2,11 @@ package com.retroradyo.app
 
 import android.app.Activity
 import android.content.ComponentName
+import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.BatteryManager
 import android.os.Build
 import android.os.Bundle
@@ -379,6 +381,51 @@ class MainActivity : Activity() {
                 if (!controller.isPlaying) {
                     setStationPlaylist(controller, stationsJson, stationId, startPlayback = true)
                 }
+            }
+        }
+
+        @JavascriptInterface
+        fun openStationSuggestion(name: String, url: String): Boolean {
+            val safeName = name.trim()
+            val safeUrl = url.trim()
+            val parsedUrl = runCatching { Uri.parse(safeUrl) }.getOrNull()
+            val scheme = parsedUrl?.scheme
+            if (safeName.isEmpty() || (scheme != "http" && scheme != "https") ||
+                parsedUrl?.host.isNullOrBlank()
+            ) {
+                return false
+            }
+            val body = """
+                ### Station name
+
+                $safeName
+
+                ### Stream URL
+
+                $safeUrl
+
+                ### Notes
+
+                Suggested from RetroRadyo. Please verify that this is a publicly accessible radio stream.
+            """.trimIndent()
+            val issueUri = Uri.Builder()
+                .scheme("https")
+                .authority("github.com")
+                .appendPath("atmacali")
+                .appendPath("KlasikRadyo")
+                .appendPath("issues")
+                .appendPath("new")
+                .appendQueryParameter("template", "station-suggestion.md")
+                .appendQueryParameter("title", "Station suggestion: $safeName")
+                .appendQueryParameter("body", body)
+                .build()
+            return try {
+                startActivity(Intent(Intent.ACTION_VIEW, issueUri))
+                true
+            } catch (e: ActivityNotFoundException) {
+                false
+            } catch (e: SecurityException) {
+                false
             }
         }
 

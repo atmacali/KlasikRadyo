@@ -142,6 +142,31 @@
             flex: 0 0 auto;
             accent-color: #39a77b;
         }
+        .catalog-actions { display: grid; gap: 9px; padding-top: 12px; }
+        .catalog-status { min-height: 18px; margin: 0; color: #aab4c0; font-size: 12px; line-height: 1.4; }
+        .catalog-source { margin: 0; color: #747e8a; font-size: 10px; overflow-wrap: anywhere; }
+        .archived-stations {
+            margin: 0 0 24px;
+            border: 1px solid #272d35;
+            border-radius: 12px;
+            background: #08090b;
+        }
+        .archived-stations[hidden] { display: none; }
+        .archived-stations summary { padding: 14px 16px; color: #8e98a4; font-size: 12px; cursor: pointer; }
+        .archived-list { display: grid; gap: 7px; padding: 0 12px 12px; }
+        .archived-card {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            padding: 9px 10px;
+            border: 1px solid #22262d;
+            border-radius: 9px;
+            color: #aab4c0;
+            font-size: 12px;
+        }
+        .archived-card-name { min-width: 0; overflow-wrap: anywhere; }
+        .archived-card .btn { min-height: 40px; padding: 8px 11px; font-size: 12px; }
         .btn {
             min-height: 48px;
             padding: 12px 16px;
@@ -257,6 +282,7 @@
         .screensaver .station-list,
         .screensaver .toolbar,
         .screensaver .restore-row,
+        .screensaver .archived-stations,
         .screensaver .settings-menu { display: none; }
         .screensaver .header { margin: 0 0 28px; }
         .screensaver .clock { margin: 0 0 8px; }
@@ -275,6 +301,20 @@
             .clock { font-size: 40px; }
             .knobs { margin-bottom: 18px; }
             .knob { --knob-size: 116px; --knob-pivot: 45px; }
+        }
+        @media (orientation: landscape) and (min-width: 600px) {
+            .app { width: min(100%, 900px); }
+            .header { margin-bottom: 14px; }
+            .clock { margin-top: 4px; font-size: 36px; }
+            .knobs {
+                max-width: 900px;
+                gap: clamp(72px, 17vw, 220px);
+                margin-bottom: 20px;
+            }
+            .knob { --knob-size: clamp(176px, 49vh, 230px); --knob-pivot: clamp(70px, 19vh, 91px); }
+            .knob-label { margin-bottom: 8px; }
+            .gesture-hint { margin-top: 8px; }
+            .screensaver .app { min-height: calc(100dvh - max(24px, env(safe-area-inset-top)) - max(24px, env(safe-area-inset-bottom))); }
         }
     </style>
 </head>
@@ -314,6 +354,10 @@
         <div class="restore-row">
             <button class="btn" type="button" onclick="openRestoreModal()">VARSAYILANLARI GERİ YÜKLE</button>
         </div>
+        <details class="archived-stations" id="archivedStationsSection">
+            <summary id="archivedStationsSummary">GİZLİ KANALLAR · 0</summary>
+            <div class="archived-list" id="archivedStationsList"></div>
+        </details>
         <details class="settings-menu">
             <summary>MENÜ · OTOMATİK DAVRANIŞ</summary>
             <div class="settings-options">
@@ -329,6 +373,12 @@
                     <span>Bluetooth bağlanınca son radyoyu çal</span>
                     <input id="bluetoothPlaySetting" type="checkbox">
                 </label>
+            </div>
+            <div class="catalog-actions">
+                <button class="btn" type="button" onclick="fetchStationCatalog()">KANAL LİSTESİNİ GÜNCELLE</button>
+                <p class="catalog-source">Kaynak: atmacali/KlasikRadyo · stations.json</p>
+                <button class="btn" type="button" onclick="suggestSelectedStation()">SEÇİLİ KANALI GITHUB'A ÖNER</button>
+                <p class="catalog-status" id="catalogStatus" role="status">Kanal önerisi GitHub'da açılır; son göndermeyi siz onaylarsınız.</p>
             </div>
         </details>
     </main>
@@ -358,6 +408,10 @@
     <script>
         const stationListVersionKey = 'retro_stations_version';
         const stationListVersion = '3';
+        const catalogUrl = 'https://raw.githubusercontent.com/atmacali/KlasikRadyo/main/stations.json';
+        const catalogBaselineKey = 'retro_catalog_baseline';
+        const catalogDeletedKey = 'retro_catalog_deleted';
+        const catalogArchivedKey = 'retro_catalog_archived';
         const defaultStations = [
             { id: '1', defaultKey: '1', name: 'Radyo Fenomen 100.4 FM', url: 'https://live.radyofenomen.com/fenomen/128/icecast.audio', fav: false },
             { id: '2', defaultKey: '2', name: 'Süper FM 90.8', url: 'https://25593.live.streamtheworld.com:443/SUPER_FM.mp3', fav: false },
@@ -448,6 +502,30 @@
         let volume = 70;
         let editingStationId = null;
         let screensaverActive = false;
+        let archivedCatalogStations = loadLocalJson(catalogArchivedKey, []);
+        let catalogDeletedIds = new Set(loadLocalJson(catalogDeletedKey, []));
+        let catalogBaseline = loadLocalJson(catalogBaselineKey, []);
+
+        function loadLocalJson(key, fallback) {
+            try {
+                const value = JSON.parse(localStorage.getItem(key) || 'null');
+                return Array.isArray(value) ? value : fallback;
+            } catch {
+                return fallback;
+            }
+        }
+
+        function persistCatalogState() {
+            try {
+                localStorage.setItem(catalogDeletedKey, JSON.stringify([...catalogDeletedIds]));
+                localStorage.setItem(catalogArchivedKey, JSON.stringify(archivedCatalogStations));
+                localStorage.setItem(catalogBaselineKey, JSON.stringify(catalogBaseline));
+                return true;
+            } catch {
+                setCatalogStatus('Kanal listesi kaydedilemedi. Cihazın depolama alanını kontrol edin.', true);
+                return false;
+            }
+        }
 
         function loadSelectedStationId() {
             try {
@@ -519,6 +597,7 @@
             );
             stationName.title = screensaverActive ? 'Ekran koruyucudan çıkmak için dokunun' : '';
             renderStations();
+            renderArchivedStations();
         }
 
         function toggleScreensaver(active = !screensaverActive) {
@@ -569,6 +648,190 @@
                 card.append(selectButton, actions);
                 list.append(card);
             });
+        }
+
+        function renderArchivedStations() {
+            const archivedSection = document.getElementById('archivedStationsSection');
+            const archivedList = document.getElementById('archivedStationsList');
+            document.getElementById('archivedStationsSummary').textContent =
+                `GİZLİ KANALLAR · ${archivedCatalogStations.length}`;
+            archivedSection.hidden = archivedCatalogStations.length === 0;
+            archivedList.replaceChildren();
+            archivedCatalogStations.forEach(station => {
+                const row = document.createElement('div');
+                row.className = 'archived-card';
+                const name = document.createElement('span');
+                name.className = 'archived-card-name';
+                name.textContent = station.name;
+                const activate = document.createElement('button');
+                activate.className = 'btn';
+                activate.type = 'button';
+                activate.textContent = 'ETKİNLEŞTİR';
+                activate.setAttribute('aria-label', `${station.name} kanalını etkinleştir`);
+                activate.addEventListener('click', () => activateArchivedStation(station.id));
+                row.append(name, activate);
+                archivedList.append(row);
+            });
+        }
+
+        function isCatalogStation(station) {
+            return Boolean(station.catalogManaged || defaultKeyForStation(station));
+        }
+
+        function setCatalogStatus(message, isError = false) {
+            const status = document.getElementById('catalogStatus');
+            status.textContent = message;
+            status.style.color = isError ? '#fca5a5' : '#aab4c0';
+        }
+
+        function activateArchivedStation(id) {
+            const archivedIndex = archivedCatalogStations.findIndex(station => station.id === id);
+            if (archivedIndex < 0 || stations.some(station => station.id === id)) return;
+            const [station] = archivedCatalogStations.splice(archivedIndex, 1);
+            if (isCatalogStation(station)) catalogDeletedIds.delete(id);
+            stations.push({ ...station });
+            persistCatalogState();
+            saveAndRender();
+        }
+
+        function validateCatalog(payload) {
+            if (!payload || payload.version !== 1 || !Array.isArray(payload.stations) ||
+                payload.stations.length === 0 || payload.stations.length > 500
+            ) {
+                throw new Error('GitHub kanal listesi biçimi tanınmıyor.');
+            }
+            const seenIds = new Set();
+            return payload.stations.map((station, index) => {
+                const id = typeof station?.id === 'string' ? station.id.trim() : '';
+                const name = typeof station?.name === 'string' ? station.name.trim() : '';
+                const url = typeof station?.url === 'string' ? station.url.trim() : '';
+                let parsedUrl;
+                try {
+                    parsedUrl = new URL(url);
+                } catch {
+                    throw new Error(`GitHub kanal listesindeki ${index + 1}. yayın adresi geçersiz.`);
+                }
+                if (!id || !name || !['https:', 'http:'].includes(parsedUrl.protocol) ||
+                    !parsedUrl.hostname || seenIds.has(id)
+                ) {
+                    throw new Error(`GitHub kanal listesindeki ${index + 1}. kanal geçersiz veya yinelenmiş.`);
+                }
+                seenIds.add(id);
+                return {
+                    id,
+                    defaultKey: typeof station.defaultKey === 'string'
+                        ? station.defaultKey
+                        : `catalog:${id}`,
+                    catalogManaged: true,
+                    name,
+                    url,
+                    fav: false
+                };
+            });
+        }
+
+        function mergeCatalogStations(remoteStations) {
+            const oldBaselineById = new Map(catalogBaseline.map(station => [station.id, station]));
+            const localById = new Map(stations.map(station => [station.id, station]));
+            const archivedById = new Map(archivedCatalogStations.map(station => [station.id, station]));
+            const knownIds = new Set([
+                ...oldBaselineById.keys(),
+                ...defaultStations.map(station => station.id)
+            ]);
+            archivedById.forEach((station, id) => catalogDeletedIds.add(id));
+
+            const remoteIds = new Set(remoteStations.map(station => station.id));
+            const customCollision = remoteStations.find(station => {
+                const local = localById.get(station.id);
+                return local && !isCatalogStation(local);
+            });
+            if (customCollision) {
+                throw new Error(`“${customCollision.name}” kanal kimliği özel bir kanal ile çakışıyor; hiçbir değişiklik uygulanmadı.`);
+            }
+            knownIds.forEach(id => {
+                if (!localById.has(id)) catalogDeletedIds.add(id);
+            });
+            const nextStations = stations.filter(station => {
+                if (!isCatalogStation(station) || remoteIds.has(station.id)) return true;
+                archivedById.set(station.id, { ...station, catalogManaged: true });
+                catalogDeletedIds.add(station.id);
+                return false;
+            }).filter(station => !isCatalogStation(station) || !catalogDeletedIds.has(station.id));
+
+            remoteStations.forEach(remote => {
+                const local = localById.get(remote.id);
+                const archived = archivedById.get(remote.id);
+                const old = oldBaselineById.get(remote.id) ||
+                    defaultStations.find(station => station.id === remote.id);
+                if (catalogDeletedIds.has(remote.id)) {
+                    archivedById.set(remote.id, mergeCatalogEntry(remote, archived || local, old));
+                    return;
+                }
+                nextStations.push(mergeCatalogEntry(remote, local, old));
+                archivedById.delete(remote.id);
+            });
+
+            stations = nextStations;
+            archivedCatalogStations = [...archivedById.values()];
+            catalogBaseline = remoteStations.map(({ id, name, url }) => ({ id, name, url }));
+            if (!persistCatalogState()) throw new Error('Kanal listesi cihaza kaydedilemedi.');
+            saveAndRender();
+            return remoteStations.length;
+        }
+
+        function mergeCatalogEntry(remote, local, old) {
+            const nameOverride = local
+                ? (typeof local.nameOverride === 'boolean'
+                    ? local.nameOverride
+                    : Boolean(old && local.name !== old.name))
+                : false;
+            const urlOverride = local
+                ? (typeof local.urlOverride === 'boolean'
+                    ? local.urlOverride
+                    : Boolean(old && local.url !== old.url))
+                : false;
+            return {
+                ...remote,
+                fav: Boolean(local?.fav || archivedCatalogStations.find(item => item.id === remote.id)?.fav),
+                nameOverride,
+                urlOverride,
+                name: nameOverride ? local.name : remote.name,
+                url: urlOverride ? local.url : remote.url
+            };
+        }
+
+        async function fetchStationCatalog() {
+            const button = document.querySelector('[onclick="fetchStationCatalog()"]');
+            button.disabled = true;
+            setCatalogStatus('GitHub kanal listesi alınıyor…');
+            try {
+                const response = await fetch(catalogUrl, { cache: 'no-store' });
+                if (!response.ok) throw new Error(`GitHub isteği başarısız oldu (${response.status}).`);
+                const remoteStations = validateCatalog(await response.json());
+                const count = mergeCatalogStations(remoteStations);
+                setCatalogStatus(`${count} katalog kanalı eşitlendi. Gizlenenler aşağıdaki “Gizli kanallar” bölümünde.`);
+            } catch (error) {
+                setCatalogStatus(error instanceof Error ? error.message : 'Kanal listesi alınamadı.', true);
+            } finally {
+                button.disabled = false;
+            }
+        }
+
+        function suggestSelectedStation() {
+            const station = selectedStation();
+            if (!station) {
+                setCatalogStatus('Önce önerilecek bir kanal seçin.', true);
+                return;
+            }
+            if (!window.AndroidBridge || typeof window.AndroidBridge.openStationSuggestion !== 'function') {
+                setCatalogStatus('GitHub öneri formu yalnızca Android uygulamasında açılabilir.', true);
+                return;
+            }
+            if (!window.AndroidBridge.openStationSuggestion(station.name, station.url)) {
+                setCatalogStatus('GitHub formu açılamadı. Tarayıcıyı veya internet bağlantısını kontrol edin.', true);
+                return;
+            }
+            setCatalogStatus('GitHub formu açıldı. Kanal bilgilerini gözden geçirip GitHub’da “Submit new issue” düğmesine siz basın.');
         }
 
         function selectStation(id) {
@@ -688,6 +951,12 @@
                 }
                 station.name = name;
                 station.url = url;
+                if (isCatalogStation(station)) {
+                    const baseline = catalogBaseline.find(item => item.id === station.id) ||
+                        defaultStations.find(item => item.id === station.id);
+                    station.nameOverride = Boolean(baseline && name !== baseline.name);
+                    station.urlOverride = Boolean(baseline && url !== baseline.url);
+                }
             } else {
                 stations.push({
                     id: `custom-${Date.now()}-${Math.random().toString(36).slice(2)}`,
@@ -703,7 +972,7 @@
 
         function restoreDefaults() {
             const existingDefaults = new Map(
-                stations
+                [...stations, ...archivedCatalogStations]
                     .map(station => [defaultKeyForStation(station), station])
                     .filter(([defaultKey]) => defaultKey)
             );
@@ -715,6 +984,10 @@
                 })),
                 ...customStations
             ];
+            const restoredIds = new Set(defaultStations.map(station => station.id));
+            restoredIds.forEach(id => catalogDeletedIds.delete(id));
+            archivedCatalogStations = archivedCatalogStations.filter(station => !restoredIds.has(station.id));
+            persistCatalogState();
             if (!selectedStation()) {
                 currentStationId = defaultStations[0]?.id || null;
                 saveSelectedStationId();
@@ -865,6 +1138,15 @@
         });
 
         function deleteStation(id) {
+            const deletedStation = stations.find(station => station.id === id);
+            if (deletedStation && isCatalogStation(deletedStation)) {
+                catalogDeletedIds.add(id);
+                archivedCatalogStations = [
+                    ...archivedCatalogStations.filter(station => station.id !== id),
+                    { ...deletedStation, catalogManaged: true }
+                ];
+                persistCatalogState();
+            }
             const wasSelected = currentStationId === id;
             const wasPlaying = wasSelected && isPlaying;
             stations = stations.filter(station => station.id !== id);

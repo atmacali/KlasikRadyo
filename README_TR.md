@@ -20,7 +20,10 @@ Android Studio'da bu klasörü açıp Gradle senkronizasyonunu tamamla. Ardında
 - İstasyon ekleme, durdurma ve varsayılanları geri yükleme düğmeleri listenin en altında
 - “AMOLED EKRAN KORUYUCU” düğmesiyle saat, kanal adı ve iki çevirmeli kontrol dışında kalan arayüzü gizleme; çıkmak için kanal adına dokunma
 - Kanal düğmesinde her kanal değişimi için 181°'den fazla bilinçli döndürme; eşik sonrası hareket sayacı sıfırlanır
+- Telefon yatay çevrildiğinde daha büyük ve aralıklı ses/kanal düğmeleri
 - Alt kısımdaki **MENÜ · OTOMATİK DAVRANIŞ** bölümünden şarja takılma/çıkarma ve Bluetooth otomatik çalma seçeneklerini açıp kapatma
+- Menüden GitHub'daki ortak `stations.json` kanal kataloğunu elle güncelleme; silinen katalog kanallarını gizli listeden isteğe bağlı geri etkinleştirme
+- Seçili kanalı GitHub öneri formuna kullanıcı onayıyla gönderme
 - Ses düğmesinde seçilen son ses seviyesini uygulama açılışları ve servis yeniden başlatmaları arasında koruma
 - Favori işaretleme (kanal düzenlenirken korunur)
 - Bluetooth kulaklık/medya kontrolleriyle oynat/duraklat ve ileri/geri kanal değiştirme
@@ -44,6 +47,18 @@ MacroDroid ile Bluetooth bağlanınca uygulamayı açmak için bir makro oluştu
 3. Makroyu kaydet ve Retro Radyo ayar menüsünde **Bluetooth bağlanınca son radyoyu çal** seçeneğini aç. Android 12+ sorarsa Yakındaki cihazlar/Bluetooth iznini ver.
 
 Uygulama zaten açıksa ses akışı yeniden başlatılmaz; uygulama kapalıysa MacroDroid'in uygulamayı açması son seçili kanalı çaldırır. Otomatik çalma seçeneği ayrıca uygulamanın servisinin aldığı Bluetooth bağlantı olaylarında da çalışır. MacroDroid arka planda uygulama açamıyorsa Xiaomi ayarlarında MacroDroid için arka planda otomatik başlatma ve pil kısıtlaması olmamasına izin ver; varsa arka planda pencere açma iznini de etkinleştir.
+
+Menüde **Kanal listesini güncelle** seçilince herkese açık
+`https://github.com/atmacali/KlasikRadyo/blob/main/stations.json` kataloğu indirilir. Kanal adı/adresi
+değişiklikleri uygulanır; favoriler, özel kanallar ve kullanıcı tarafından düzenlenmiş katalog alanları korunur.
+Katalogda artık bulunmayan veya kullanıcı tarafından silinmiş katalog kanalları listenin altındaki kapalı
+**Gizli kanallar** bölümüne alınır; **Etkinleştir** ile tekrar görünür yapılır. Güncelleme düğmesi ağ bağlantısı
+gerektirir; GitHub'a kataloğu değiştirmek için depo sahibi `stations.json` dosyasını günceller ve GitHub'a gönderir.
+
+**Seçili kanalı GitHub'a öner** düğmesi, seçili kanal adı ve yayın adresi önceden doldurulmuş bir GitHub issue
+formu açar. Uygulama bilgileri kendiliğinden göndermez: formu gözden geçirip GitHub'da **Submit new issue**
+düğmesine sizin basmanız gerekir. Bunun için GitHub hesabında oturum açmanız gerekebilir. Öneriler depoda issue
+olarak görünür; uygulama GitHub parolası veya erişim anahtarı istemez.
 
 Uygulama arka plandaysa servis yayın başlatabilir; bildirime dokunmak radyo ekranını açar. Android 10 ve üzeri arka plandan aktivite açılmasını
 kısıtlar: şarja veya Bluetooth'a bağlanınca ekranın kendiliğinden açılması garanti edilemez ve uygulama bu kısıtlamayı aşmaya çalışmaz.
