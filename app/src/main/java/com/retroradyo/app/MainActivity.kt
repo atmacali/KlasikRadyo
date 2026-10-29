@@ -4,6 +4,7 @@ import android.app.Activity
 import android.content.ComponentName
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.pm.PackageManager
 import android.os.BatteryManager
 import android.os.Build
 import android.os.Bundle
@@ -29,6 +30,8 @@ class MainActivity : Activity() {
     private var pageReady = false
     private var pendingPowerAction: String? = null
     private var wasCharging = false
+    @Volatile
+    private var pendingBluetoothPermissionRequest = false
     private lateinit var webView: WebView
     private val powerConnectionReceiver = PowerConnectionReceiver()
     private var powerReceiverRegistered = false
@@ -56,8 +59,10 @@ class MainActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         wasCharging = isPowerConnected()
-        if (intent?.action == ACTION_POWER_CONNECTED || wasCharging) {
-            pendingPowerAction = START_RADIO_SCRIPT
+        if (getAutomationPreference(AUTO_START_ON_CHARGE, true) &&
+            (intent?.action == ACTION_POWER_CONNECTED || wasCharging)
+        ) {
+            pendingPowerAction = RESUME_LAST_STATION_SCRIPT
             window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         }
         ContextCompat.startForegroundService(
@@ -86,6 +91,7 @@ class MainActivity : Activity() {
                         pendingPlayerAction?.invoke(controller)
                         pendingPlayerAction = null
                         syncPlaybackStateToWebView()
+                        syncVolumeToWebView()
                         updateKeepScreenOn()
                     }
                 } catch (e: Exception) {
@@ -104,7 +110,13 @@ class MainActivity : Activity() {
                 override fun onPageFinished(view: WebView, url: String) {
                     pageReady = true
                     syncPlaybackStateToWebView()
-                    runPendingPowerAction()
+                    syncVolumeToWebView()
+                    syncAutomationSettingsToWebView()
+                    if (pendingPowerAction != null) {
+                        runPendingPowerAction()
+                    } else {
+                        resumeLastStationInWebView()
+                    }
                 }
             }
             loadUrl("file:///android_asset/index.html")
@@ -118,8 +130,32 @@ class MainActivity : Activity() {
         when (intent?.action) {
             ACTION_POWER_CONNECTED -> handlePowerConnected()
             ACTION_POWER_DISCONNECTED -> handlePowerDisconnected()
-            ACTION_OPEN_FROM_MONITOR -> if (isPowerConnected()) handlePowerConnected()
+            ACTION_OPEN_FROM_MONITOR -> {
+                if (isPowerConnected() && getAutomationPreference(AUTO_START_ON_CHARGE, true)) {
+                    handlePowerConnected()
+                } else {
+                    resumeLastStationInWebView()
+                }
+            }
+            Intent.ACTION_MAIN -> resumeLastStationInWebView()
         }
+    }
+
+    @Deprecated("Deprecated in Android, retained for runtime Bluetooth permission result")
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode != REQUEST_BLUETOOTH_CONNECT) return
+        val granted = grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED
+        if (pendingBluetoothPermissionRequest && granted) {
+            setAutomationPreference(AUTO_PLAY_ON_BLUETOOTH, true)
+            refreshBluetoothMonitor()
+        }
+        pendingBluetoothPermissionRequest = false
+        syncAutomationSettingsToWebView()
     }
 
     override fun onResume() {
@@ -168,7 +204,9 @@ class MainActivity : Activity() {
 
     private fun updateKeepScreenOn() {
         if (!::webView.isInitialized) return
-        if (wasCharging || mediaController?.isPlaying == true) {
+        if ((wasCharging && getAutomationPreference(AUTO_START_ON_CHARGE, true)) ||
+            mediaController?.isPlaying == true
+        ) {
             window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         } else {
             window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
@@ -177,14 +215,19 @@ class MainActivity : Activity() {
 
     private fun handlePowerConnected() {
         wasCharging = true
+        if (!getAutomationPreference(AUTO_START_ON_CHARGE, true)) return
         window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        pendingPowerAction = START_RADIO_SCRIPT
+        pendingPowerAction = RESUME_LAST_STATION_SCRIPT
         runPendingPowerAction()
     }
 
     private fun handlePowerDisconnected() {
         wasCharging = false
         window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        if (!getAutomationPreference(STOP_ON_UNPLUG, true)) {
+            updateKeepScreenOn()
+            return
+        }
         try {
             mediaController?.stop()
         } catch (e: Exception) {
@@ -206,6 +249,60 @@ class MainActivity : Activity() {
         val controller = mediaController ?: return
         if (!::webView.isInitialized || !pageReady) return
         webView.evaluateJavascript("setPlaybackStateFromNative(${controller.isPlaying})", null)
+    }
+
+    private fun syncVolumeToWebView() {
+        val controller = mediaController ?: return
+        if (!::webView.isInitialized || !pageReady) return
+        webView.evaluateJavascript(
+            "setVolumeFromNative(${controller.volume.coerceIn(0f, 1f)})",
+            null
+        )
+    }
+
+    private fun resumeLastStationInWebView() {
+        if (!::webView.isInitialized || !pageReady) return
+        webView.evaluateJavascript(RESUME_LAST_STATION_SCRIPT, null)
+    }
+
+    private fun syncAutomationSettingsToWebView() {
+        if (!::webView.isInitialized || !pageReady) return
+        val autoStart = getAutomationPreference(AUTO_START_ON_CHARGE, true)
+        val stopOnUnplug = getAutomationPreference(STOP_ON_UNPLUG, true)
+        val bluetoothAutoPlay = isBluetoothAutoPlayEnabled()
+        webView.evaluateJavascript(
+            "applyAutomationSettingsFromNative($autoStart,$stopOnUnplug,$bluetoothAutoPlay)",
+            null
+        )
+    }
+
+    private fun refreshBluetoothMonitor() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S || hasBluetoothConnectPermission()) {
+            ContextCompat.startForegroundService(
+                this,
+                Intent(this, PlaybackService::class.java)
+                    .setAction(ACTION_REFRESH_AUTOMATION_RECEIVERS)
+            )
+        }
+    }
+
+    private fun hasBluetoothConnectPermission(): Boolean =
+        Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||
+            checkSelfPermission(android.Manifest.permission.BLUETOOTH_CONNECT) ==
+            PackageManager.PERMISSION_GRANTED
+
+    private fun isBluetoothAutoPlayEnabled(): Boolean =
+        getAutomationPreference(AUTO_PLAY_ON_BLUETOOTH, false) && hasBluetoothConnectPermission()
+
+    private fun getAutomationPreference(key: String, defaultValue: Boolean): Boolean =
+        getSharedPreferences(AUTOMATION_PREFERENCES, MODE_PRIVATE)
+            .getBoolean(key, defaultValue)
+
+    private fun setAutomationPreference(key: String, enabled: Boolean) {
+        getSharedPreferences(AUTOMATION_PREFERENCES, MODE_PRIVATE)
+            .edit()
+            .putBoolean(key, enabled)
+            .apply()
     }
 
     inner class WebAppInterface {
@@ -231,6 +328,61 @@ class MainActivity : Activity() {
         }
 
         @JavascriptInterface
+        fun getSavedVolume(): Float =
+            getSharedPreferences(PLAYBACK_PREFERENCES, MODE_PRIVATE)
+                .getFloat(VOLUME_KEY, DEFAULT_VOLUME)
+                .coerceIn(0f, 1f)
+
+        @JavascriptInterface
+        fun getAutoStartOnChargeEnabled(): Boolean =
+            getAutomationPreference(AUTO_START_ON_CHARGE, true)
+
+        @JavascriptInterface
+        fun getStopOnUnplugEnabled(): Boolean =
+            getAutomationPreference(STOP_ON_UNPLUG, true)
+
+        @JavascriptInterface
+        fun getBluetoothAutoPlayEnabled(): Boolean = isBluetoothAutoPlayEnabled()
+
+        @JavascriptInterface
+        fun setAutoStartOnChargeEnabled(enabled: Boolean) {
+            setAutomationPreference(AUTO_START_ON_CHARGE, enabled)
+        }
+
+        @JavascriptInterface
+        fun setStopOnUnplugEnabled(enabled: Boolean) {
+            setAutomationPreference(STOP_ON_UNPLUG, enabled)
+        }
+
+        @JavascriptInterface
+        fun setBluetoothAutoPlayEnabled(enabled: Boolean): Boolean {
+            if (enabled && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+                !hasBluetoothConnectPermission()
+            ) {
+                pendingBluetoothPermissionRequest = true
+                runOnUiThread {
+                    requestPermissions(
+                        arrayOf(android.Manifest.permission.BLUETOOTH_CONNECT),
+                        REQUEST_BLUETOOTH_CONNECT
+                    )
+                }
+                return false
+            }
+            setAutomationPreference(AUTO_PLAY_ON_BLUETOOTH, enabled)
+            refreshBluetoothMonitor()
+            return true
+        }
+
+        @JavascriptInterface
+        fun resumeLastStation(stationsJson: String, stationId: String) {
+            dispatchPlayerAction { controller ->
+                if (!controller.isPlaying) {
+                    setStationPlaylist(controller, stationsJson, stationId, startPlayback = true)
+                }
+            }
+        }
+
+        @JavascriptInterface
         fun pauseStream() {
             dispatchPlayerAction { it.pause() }
         }
@@ -244,6 +396,15 @@ class MainActivity : Activity() {
             val mediaItems = buildStationMediaItems(stationsJson)
             if (mediaItems.isEmpty()) {
                 if (startPlayback) controller.stop()
+                return
+            }
+
+            val storedPlaylist = getSharedPreferences(PLAYBACK_PREFERENCES, MODE_PRIVATE)
+                .getString(STATION_PLAYLIST_KEY, null)
+            if (controller.isPlaying &&
+                controller.currentMediaItem?.mediaId == selectedStationId &&
+                storedPlaylist == stationsJson
+            ) {
                 return
             }
 
@@ -304,6 +465,10 @@ class MainActivity : Activity() {
         fun setVolume(volume: Float) {
             runOnUiThread {
                 val normalizedVolume = volume.coerceIn(0f, 1f)
+                getSharedPreferences(PLAYBACK_PREFERENCES, MODE_PRIVATE)
+                    .edit()
+                    .putFloat(VOLUME_KEY, normalizedVolume)
+                    .apply()
                 val controller = mediaController
                 if (controller != null) {
                     controller.volume = normalizedVolume
@@ -347,6 +512,13 @@ class MainActivity : Activity() {
         private const val PLAYBACK_PREFERENCES = "radio_playback"
         private const val SELECTED_STATION_KEY = "selected_station_id"
         private const val STATION_PLAYLIST_KEY = "station_playlist_json"
+        private const val VOLUME_KEY = "volume"
+        private const val DEFAULT_VOLUME = 0.7f
+        private const val AUTOMATION_PREFERENCES = "radio_automation"
+        private const val AUTO_START_ON_CHARGE = "auto_start_on_charge"
+        private const val STOP_ON_UNPLUG = "stop_on_unplug"
+        private const val AUTO_PLAY_ON_BLUETOOTH = "auto_play_on_bluetooth"
+        private const val REQUEST_BLUETOOTH_CONNECT = 102
 
         private val foregroundActivityLock = Any()
         @Volatile
@@ -379,8 +551,9 @@ class MainActivity : Activity() {
         const val ACTION_POWER_DISCONNECTED = "com.retroradyo.app.POWER_DISCONNECTED"
         const val ACTION_OPEN_FROM_MONITOR = "com.retroradyo.app.OPEN_FROM_MONITOR"
         const val ACTION_START_CHARGING_MONITOR = "com.retroradyo.app.START_CHARGING_MONITOR"
+        const val ACTION_REFRESH_AUTOMATION_RECEIVERS = "com.retroradyo.app.REFRESH_AUTOMATION_RECEIVERS"
 
-        private const val START_RADIO_SCRIPT = "startRadioForPower()"
         private const val STOP_RADIO_SCRIPT = "stopRadio()"
+        private const val RESUME_LAST_STATION_SCRIPT = "resumeLastStationOnLaunch()"
     }
 }

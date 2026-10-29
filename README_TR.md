@@ -20,18 +20,33 @@ Android Studio'da bu klasörü açıp Gradle senkronizasyonunu tamamla. Ardında
 - İstasyon ekleme, durdurma ve varsayılanları geri yükleme düğmeleri listenin en altında
 - “AMOLED EKRAN KORUYUCU” düğmesiyle saat, kanal adı ve iki çevirmeli kontrol dışında kalan arayüzü gizleme; çıkmak için kanal adına dokunma
 - Kanal düğmesinde her kanal değişimi için 181°'den fazla bilinçli döndürme; eşik sonrası hareket sayacı sıfırlanır
+- Alt kısımdaki **MENÜ · OTOMATİK DAVRANIŞ** bölümünden şarja takılma/çıkarma ve Bluetooth otomatik çalma seçeneklerini açıp kapatma
+- Ses düğmesinde seçilen son ses seviyesini uygulama açılışları ve servis yeniden başlatmaları arasında koruma
 - Favori işaretleme (kanal düzenlenirken korunur)
 - Bluetooth kulaklık/medya kontrolleriyle oynat/duraklat ve ileri/geri kanal değiştirme
 - Uygulama ilk açıldığında başlayan, sürekli bildirim göstererek şarj bağlantısını izleyen foreground service
-- Şarja takılınca son seçili istasyonu başlatma; fiş çekilince yayını durdurup ekranı kapatma, izleme servisini sürdürme
+- Varsayılan olarak şarja takılınca son seçili istasyonu başlatma; fiş çekilince yayını durdurup ekranı kapatma, izleme servisini sürdürme (menüden ayrı ayrı ayarlanabilir)
+- Bluetooth kulaklık/cihaz bağlanınca son seçili radyoyu otomatik çalma (menüden açılır; Android 12+ Bluetooth izni gerekir)
 - Daha az ekran ışığı için siyah AMOLED arka planı; ses/kanal kontrolleri her zaman görünür
 - İlk prototipte uygulama açıkken yayın çalma
 - Reklam/analitik SDK'sı yok
 
 İzleme servisi uygulamayı ilk kez açtığında başlar ve fişi çekince radyo uygulama ekranı kapansa da servisi ve
-kalıcı, sessiz bildirimi çalışır bırakır. Uygulama ekrandayken şarjı takmak radyoyu başlatır. Uygulama arka plandaysa
-servis yayın başlatabilir; bildirime dokunmak radyo ekranını açar. Android 10 ve üzeri arka plandan aktivite açılmasını
-kısıtlar: şarja takıldığında ekranın kendiliğinden açılması garanti edilemez ve uygulama bu kısıtlamayı aşmaya çalışmaz.
+kalıcı, sessiz bildirimi çalışır bırakır. Alt menüde şarja takılınca başlatma ve fiş çekilince durdurup ekranı kapatma
+seçenekleri varsayılan olarak açıktır. Bluetooth otomatik çalma varsayılan olarak kapalıdır; açıldığında Android 12+
+Bluetooth cihazlarına erişim izni ister. Uygulama açıldığında, çalmıyorsa son seçili istasyonu yeniden başlatır;
+zaten çalıyorsa akışı kesip tekrar başlatmaz. Seçili istasyon, özel kanallar ve favoriler korunur.
+İlk kurulumda ses varsayılan olarak %70'tir; ses düğmesini çevirdikten sonra son değer saklanır ve sonraki açılışlarda korunur.
+
+MacroDroid ile Bluetooth bağlanınca uygulamayı açmak için bir makro oluştur:
+1. **Tetikleyici > Bağlantı > Bluetooth olayı > Cihaza bağlandı** seçip kulaklığını seç.
+2. **Eylem > Uygulamalar > Uygulamayı başlat** seçip **Retro Radyo**'yu seç.
+3. Makroyu kaydet ve Retro Radyo ayar menüsünde **Bluetooth bağlanınca son radyoyu çal** seçeneğini aç. Android 12+ sorarsa Yakındaki cihazlar/Bluetooth iznini ver.
+
+Uygulama zaten açıksa ses akışı yeniden başlatılmaz; uygulama kapalıysa MacroDroid'in uygulamayı açması son seçili kanalı çaldırır. Otomatik çalma seçeneği ayrıca uygulamanın servisinin aldığı Bluetooth bağlantı olaylarında da çalışır. MacroDroid arka planda uygulama açamıyorsa Xiaomi ayarlarında MacroDroid için arka planda otomatik başlatma ve pil kısıtlaması olmamasına izin ver; varsa arka planda pencere açma iznini de etkinleştir.
+
+Uygulama arka plandaysa servis yayın başlatabilir; bildirime dokunmak radyo ekranını açar. Android 10 ve üzeri arka plandan aktivite açılmasını
+kısıtlar: şarja veya Bluetooth'a bağlanınca ekranın kendiliğinden açılması garanti edilemez ve uygulama bu kısıtlamayı aşmaya çalışmaz.
 
 Bildirim görünürlüğü için **Ayarlar > Uygulamalar > Uygulamaları yönet > Retro Radyo > Bildirimler** iznini aç.
 Xiaomi 13'te ayrıca **Ayarlar > Uygulamalar > İzinler > Arka planda otomatik başlatma > Retro Radyo** seçeneğini

@@ -41,9 +41,12 @@ class PowerConnectionReceiver : BroadcastReceiver() {
     }
 
     private fun handlePowerDisconnected(context: Context) {
+        if (playbackService?.shouldStopOnPowerDisconnection() == false) return
         if (MainActivity.dispatchPowerActionToVisibleActivity(MainActivity.ACTION_POWER_DISCONNECTED)) {
             return
         }
+        val settings = context.getSharedPreferences("radio_automation", Context.MODE_PRIVATE)
+        if (!settings.getBoolean("stop_on_unplug", true)) return
         context.getSystemService(ActivityManager::class.java).appTasks.forEach { task ->
             try {
                 task.finishAndRemoveTask()

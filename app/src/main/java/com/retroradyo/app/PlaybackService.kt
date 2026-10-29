@@ -4,8 +4,10 @@ import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
+import android.bluetooth.BluetoothDevice
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.os.BatteryManager
 import android.os.Build
@@ -28,7 +30,17 @@ class PlaybackService : MediaSessionService() {
         playbackService = this@PlaybackService
     }
     private var powerReceiverRegistered = false
+    private var bluetoothReceiverRegistered = false
     private var isCharging = false
+    private val bluetoothReceiver = object : android.content.BroadcastReceiver() {
+        override fun onReceive(context: android.content.Context, intent: Intent) {
+            if (intent.action == BluetoothDevice.ACTION_ACL_CONNECTED &&
+                isBluetoothAutoPlayEnabled()
+            ) {
+                resumeLastStation()
+            }
+        }
+    }
     private val playerListener = object : Player.Listener {
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
             mediaItem?.mediaId?.let { stationId ->
@@ -41,6 +53,13 @@ class PlaybackService : MediaSessionService() {
 
         override fun onIsPlayingChanged(isPlaying: Boolean) {
             updateMonitorNotification(isPlaying, startForeground = true)
+        }
+
+        override fun onVolumeChanged(volume: Float) {
+            getSharedPreferences(PLAYBACK_PREFERENCES, MODE_PRIVATE)
+                .edit()
+                .putFloat(VOLUME_KEY, volume.coerceIn(0f, 1f))
+                .apply()
         }
     }
 
@@ -62,6 +81,9 @@ class PlaybackService : MediaSessionService() {
                 .setHandleAudioBecomingNoisy(true)
                 .build()
 
+            player.volume = getSharedPreferences(PLAYBACK_PREFERENCES, MODE_PRIVATE)
+                .getFloat(VOLUME_KEY, DEFAULT_VOLUME)
+                .coerceIn(0f, 1f)
             player.repeatMode = Player.REPEAT_MODE_ALL
             player.addListener(playerListener)
             mediaSession = MediaSession.Builder(this, player).build()
@@ -80,11 +102,15 @@ class PlaybackService : MediaSessionService() {
             ContextCompat.RECEIVER_EXPORTED
         )
         powerReceiverRegistered = true
+        refreshBluetoothReceiver()
         if (isCharging) resumeForPowerConnection()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         super.onStartCommand(intent, flags, startId)
+        if (intent?.action == MainActivity.ACTION_REFRESH_AUTOMATION_RECEIVERS) {
+            refreshBluetoothReceiver()
+        }
         return START_STICKY
     }
 
@@ -97,7 +123,13 @@ class PlaybackService : MediaSessionService() {
     }
 
     internal fun resumeForPowerConnection() {
+        if (!getAutomationPreference(AUTO_START_ON_CHARGE, true)) return
+        resumeLastStation()
+    }
+
+    private fun resumeLastStation() {
         mediaSession?.player?.let { player ->
+            if (player.isPlaying) return
             if (player.mediaItemCount == 0) restoreSavedPlaylist(player)
             if (player.mediaItemCount > 0) {
                 if (player.playbackState == Player.STATE_IDLE) player.prepare()
@@ -107,8 +139,13 @@ class PlaybackService : MediaSessionService() {
     }
 
     internal fun stopForPowerDisconnection() {
-        mediaSession?.player?.stop()
+        if (getAutomationPreference(STOP_ON_UNPLUG, true)) {
+            mediaSession?.player?.stop()
+        }
     }
+
+    internal fun shouldStopOnPowerDisconnection(): Boolean =
+        getAutomationPreference(STOP_ON_UNPLUG, true)
 
     internal fun onPowerConnected() {
         isCharging = true
@@ -117,7 +154,7 @@ class PlaybackService : MediaSessionService() {
 
     internal fun onPowerDisconnected() {
         isCharging = false
-        updateMonitorNotification(isPlaying = false)
+        updateMonitorNotification(isPlaying = mediaSession?.player?.isPlaying == true)
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? {
@@ -130,6 +167,33 @@ class PlaybackService : MediaSessionService() {
         return pluggedStatus?.let { it != 0 }
             ?: (getSystemService(BatteryManager::class.java)?.isCharging == true)
     }
+
+    private fun refreshBluetoothReceiver() {
+        val shouldRegister = isBluetoothAutoPlayEnabled()
+        if (shouldRegister && !bluetoothReceiverRegistered) {
+            ContextCompat.registerReceiver(
+                this,
+                bluetoothReceiver,
+                IntentFilter(BluetoothDevice.ACTION_ACL_CONNECTED),
+                ContextCompat.RECEIVER_EXPORTED
+            )
+            bluetoothReceiverRegistered = true
+        } else if (!shouldRegister && bluetoothReceiverRegistered) {
+            unregisterReceiver(bluetoothReceiver)
+            bluetoothReceiverRegistered = false
+        }
+    }
+
+    private fun isBluetoothAutoPlayEnabled(): Boolean {
+        if (!getAutomationPreference(AUTO_PLAY_ON_BLUETOOTH, false)) return false
+        return Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||
+            checkSelfPermission(android.Manifest.permission.BLUETOOTH_CONNECT) ==
+            PackageManager.PERMISSION_GRANTED
+    }
+
+    private fun getAutomationPreference(key: String, defaultValue: Boolean): Boolean =
+        getSharedPreferences(AUTOMATION_PREFERENCES, MODE_PRIVATE)
+            .getBoolean(key, defaultValue)
 
     private fun restoreSavedPlaylist(player: Player) {
         val preferences = getSharedPreferences(PLAYBACK_PREFERENCES, MODE_PRIVATE)
@@ -183,7 +247,9 @@ class PlaybackService : MediaSessionService() {
         )
         val message = when {
             isPlaying -> getString(R.string.monitor_notification_playing)
-            isCharging -> getString(R.string.monitor_notification_charging)
+            isCharging && getAutomationPreference(AUTO_START_ON_CHARGE, true) ->
+                getString(R.string.monitor_notification_charging)
+            isCharging -> getString(R.string.monitor_notification_charge_disabled)
             else -> getString(R.string.monitor_notification_waiting)
         }
         val notification: Notification = NotificationCompat.Builder(this, MONITOR_CHANNEL_ID)
@@ -230,6 +296,10 @@ class PlaybackService : MediaSessionService() {
     }
 
     override fun onDestroy() {
+        if (bluetoothReceiverRegistered) {
+            unregisterReceiver(bluetoothReceiver)
+            bluetoothReceiverRegistered = false
+        }
         if (powerReceiverRegistered) {
             unregisterReceiver(powerConnectionReceiver)
             powerReceiverRegistered = false
@@ -251,7 +321,13 @@ class PlaybackService : MediaSessionService() {
         const val PLAYBACK_PREFERENCES = "radio_playback"
         const val SELECTED_STATION_KEY = "selected_station_id"
         const val STATION_PLAYLIST_KEY = "station_playlist_json"
+        const val VOLUME_KEY = "volume"
+        const val DEFAULT_VOLUME = 0.7f
         const val MONITOR_CHANNEL_ID = "charging_monitor"
         const val MONITOR_NOTIFICATION_ID = 2001
+        const val AUTOMATION_PREFERENCES = "radio_automation"
+        const val AUTO_START_ON_CHARGE = "auto_start_on_charge"
+        const val STOP_ON_UNPLUG = "stop_on_unplug"
+        const val AUTO_PLAY_ON_BLUETOOTH = "auto_play_on_bluetooth"
     }
 }
