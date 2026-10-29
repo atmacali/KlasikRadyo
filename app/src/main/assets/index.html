@@ -10,7 +10,7 @@
             color-scheme: dark;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background: #000;
-            color: #f4f4f5;
+            color: #f4f4f4;
             font-synthesis: none;
         }
         * { box-sizing: border-box; }
@@ -27,7 +27,7 @@
         .app { width: min(100%, 460px); }
         .header { text-align: center; margin-bottom: 24px; }
         .app-title {
-            color: #9da7b3;
+            color: #aaa;
             font-size: 12px;
             font-weight: 700;
             letter-spacing: 4px;
@@ -46,12 +46,12 @@
             border: 0;
             background: transparent;
             overflow: hidden;
-            color: #c1cad5;
+            color: #ccc;
             font-size: 15px;
             text-overflow: ellipsis;
             white-space: nowrap;
         }
-        .status { margin-top: 5px; color: #7dd3a7; font-size: 13px; }
+        .status { margin-top: 5px; color: #ccc; font-size: 13px; }
         .knobs {
             display: grid;
             grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -62,7 +62,7 @@
         .knob-label {
             display: block;
             margin-bottom: 12px;
-            color: #9da7b3;
+            color: #aaa;
             font-size: 11px;
             font-weight: 700;
             letter-spacing: 2px;
@@ -78,12 +78,12 @@
             margin: 0 auto;
             padding: 12px;
             place-items: center;
-            border: 1px solid #48515d;
+            border: 1px solid #555;
             border-radius: 50%;
             background:
-                radial-gradient(circle at 50% 50%, #303843 0 54%, transparent 55%),
-                conic-gradient(from 225deg, #39a77b 0deg, #39a77b var(--arc, 0deg), #303843 var(--arc, 0deg), #303843 270deg, transparent 270deg),
-                linear-gradient(145deg, #596371, #1d2229 70%);
+                radial-gradient(circle at 50% 50%, #303030 0 54%, transparent 55%),
+                conic-gradient(from 225deg, #aaa 0deg, #aaa var(--arc, 0deg), #303030 var(--arc, 0deg), #303030 270deg, transparent 270deg),
+                linear-gradient(145deg, #555, #1d1d1d 70%);
             box-shadow: inset 0 2px 5px #ffffff18, 0 10px 24px #0008;
             cursor: pointer;
             touch-action: none;
@@ -97,28 +97,26 @@
             width: 4px;
             height: 15px;
             border-radius: 4px;
-            background: #a7f3d0;
-            box-shadow: 0 0 9px #34d399;
+            background: #ddd;
+            box-shadow: 0 0 5px #aaa;
             content: "";
             transform: translateX(-50%) rotate(var(--rotation));
             transform-origin: 50% var(--knob-pivot);
         }
-        .knob:focus-visible { outline: 3px solid #60a5fa; outline-offset: 4px; }
+        .knob:focus-visible { outline: 3px solid #fff; outline-offset: 4px; }
         .knob-value { font-size: 21px; font-weight: 700; font-variant-numeric: tabular-nums; }
-        .knob-hint { margin-top: 4px; color: #aab4c0; font-size: 10px; letter-spacing: 1px; }
-        .gesture-hint { margin-top: 12px; color: #7f8995; font-size: 11px; }
-        .toolbar { display: flex; gap: 10px; margin-bottom: 25px; }
-        .restore-row { margin: -12px 0 25px; }
+        .knob-hint { margin-top: 4px; color: #aaa; font-size: 10px; letter-spacing: 1px; }
+        .gesture-hint { margin-top: 12px; color: #888; font-size: 11px; }
         .screensaver-toggle { width: 100%; margin: 0 0 25px; }
         .settings-menu {
             margin: 0 0 24px;
-            border: 1px solid #272d35;
+            border: 1px solid #2d2d2d;
             border-radius: 12px;
-            background: #101216;
+            background: #101010;
         }
         .settings-menu summary {
             padding: 15px 16px;
-            color: #c1cad5;
+            color: #ccc;
             font-size: 13px;
             font-weight: 700;
             letter-spacing: 1px;
@@ -132,27 +130,27 @@
             justify-content: space-between;
             gap: 12px;
             padding: 8px 2px;
-            border-top: 1px solid #272d35;
-            color: #c1cad5;
+            border-top: 1px solid #2d2d2d;
+            color: #ccc;
             font-size: 13px;
         }
         .setting-row input {
             width: 22px;
             height: 22px;
             flex: 0 0 auto;
-            accent-color: #39a77b;
+            accent-color: #aaa;
         }
         .catalog-actions { display: grid; gap: 9px; padding-top: 12px; }
-        .catalog-status { min-height: 18px; margin: 0; color: #aab4c0; font-size: 12px; line-height: 1.4; }
-        .catalog-source { margin: 0; color: #747e8a; font-size: 10px; overflow-wrap: anywhere; }
+        .catalog-status { min-height: 18px; margin: 0; color: #aaa; font-size: 12px; line-height: 1.4; }
+        .catalog-source { margin: 0; color: #777; font-size: 10px; overflow-wrap: anywhere; }
         .archived-stations {
             margin: 0 0 24px;
-            border: 1px solid #272d35;
+            border: 1px solid #2d2d2d;
             border-radius: 12px;
-            background: #08090b;
+            background: #090909;
         }
         .archived-stations[hidden] { display: none; }
-        .archived-stations summary { padding: 14px 16px; color: #8e98a4; font-size: 12px; cursor: pointer; }
+        .archived-stations summary { padding: 14px 16px; color: #999; font-size: 12px; cursor: pointer; }
         .archived-list { display: grid; gap: 7px; padding: 0 12px 12px; }
         .archived-card {
             display: flex;
@@ -160,9 +158,9 @@
             justify-content: space-between;
             gap: 10px;
             padding: 9px 10px;
-            border: 1px solid #22262d;
+            border: 1px solid #262626;
             border-radius: 9px;
-            color: #aab4c0;
+            color: #aaa;
             font-size: 12px;
         }
         .archived-card-name { min-width: 0; overflow-wrap: anywhere; }
@@ -170,19 +168,19 @@
         .btn {
             min-height: 48px;
             padding: 12px 16px;
-            border: 1px solid #343b45;
+            border: 1px solid #3b3b3b;
             border-radius: 12px;
-            background: #1b2027;
+            background: #202020;
             font-size: 14px;
             font-weight: 650;
             cursor: pointer;
         }
         .btn:active { transform: scale(.98); }
-        .btn-primary { flex: 1; background: #17684d; border-color: #278361; }
-        .btn-stop { color: #fca5a5; }
+        .btn-primary { flex: 1; background: #000; border-color: #555; }
+        .btn-stop { color: #ddd; }
         .section-title {
             margin-bottom: 11px;
-            color: #9da7b3;
+            color: #aaa;
             font-size: 11px;
             font-weight: 700;
             letter-spacing: 2px;
@@ -194,11 +192,11 @@
             align-items: center;
             gap: 8px;
             padding: 8px 10px 8px 14px;
-            border: 1px solid #272d35;
+            border: 1px solid #2d2d2d;
             border-radius: 12px;
-            background: #191d23;
+            background: #191919;
         }
-        .station-card.selected { border-color: #438d70; background: #1d2927; }
+        .station-card.selected { border-color: #888; background: #252525; }
         .station-actions { display: flex; flex: 0 0 auto; gap: 6px; }
         .station-select {
             flex: 1;
@@ -212,21 +210,26 @@
             white-space: nowrap;
             cursor: pointer;
         }
-        .station-select::before { color: #7dd3a7; content: "♪  "; }
+        .station-select::before { color: #aaa; content: "♪  "; }
         .icon-btn {
             display: grid;
             width: 40px;
             height: 40px;
             flex: 0 0 40px;
             place-items: center;
-            border: 1px solid #343b45;
+            border: 1px solid #3b3b3b;
             border-radius: 10px;
-            background: #222831;
-            color: #c1cad5;
+            background: #222;
+            color: #ccc;
             font-size: 17px;
             cursor: pointer;
         }
-        .icon-btn.active { color: #fbbf24; border-color: #8a6a22; }
+        .icon-btn.active { color: #fff; border-color: #888; }
+        .icon-btn:disabled { opacity: .35; cursor: default; }
+        .btn:focus-visible,
+        .icon-btn:focus-visible,
+        .station-select:focus-visible,
+        .settings-menu summary:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
         .modal {
             position: fixed;
             z-index: 5;
@@ -244,18 +247,18 @@
             flex-direction: column;
             gap: 13px;
             padding: 20px;
-            border: 1px solid #343b45;
+            border: 1px solid #3b3b3b;
             border-radius: 16px;
-            background: #1b2027;
+            background: #202020;
         }
         .modal-content h2 { margin: 0 0 4px; font-size: 18px; }
         .input-field {
             width: 100%;
             min-height: 48px;
             padding: 12px;
-            border: 1px solid #343b45;
+            border: 1px solid #3b3b3b;
             border-radius: 9px;
-            background: #101216;
+            background: #101010;
             color: #fff;
             font-size: 16px;
         }
@@ -280,8 +283,6 @@
         .screensaver .screensaver-toggle,
         .screensaver .section-title,
         .screensaver .station-list,
-        .screensaver .toolbar,
-        .screensaver .restore-row,
         .screensaver .archived-stations,
         .screensaver .settings-menu { display: none; }
         .screensaver .header { margin: 0 0 28px; }
@@ -293,8 +294,22 @@
             -webkit-tap-highlight-color: transparent;
         }
         .screensaver .knobs { margin: 0; }
-        .screensaver .knob { box-shadow: none; }
-        .screensaver .knob::before { box-shadow: none; }
+        .screensaver .knob-label,
+        .screensaver .knob-value,
+        .screensaver .knob-hint { display: none; }
+        .screensaver .knob {
+            border-color: #444;
+            background:
+                radial-gradient(circle at 50% 50%, #000 0 54%, transparent 55%),
+                conic-gradient(from 225deg, #666 0deg, #666 var(--arc, 0deg), #181818 var(--arc, 0deg), #181818 270deg, transparent 270deg),
+                #000;
+            box-shadow: none;
+        }
+        .screensaver .knob::before { background: #ddd; box-shadow: none; }
+        .screensaver .app { transform: translate(var(--screensaver-shift-x, 0px), var(--screensaver-shift-y, 0px)); }
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after { scroll-behavior: auto !important; transition-duration: 0.01ms !important; }
+        }
         @media (max-height: 680px) {
             body { padding-top: max(14px, env(safe-area-inset-top)); }
             .header { margin-bottom: 16px; }
@@ -337,29 +352,22 @@
             </div>
             <div class="knob-group">
                 <span class="knob-label">KANAL</span>
-                <button class="knob" id="stationKnob" type="button" aria-label="Kanal seçici. Döndürerek kanal seç, basarak oynat veya duraklat." title="Döndür: kanal · Bas: oynat/duraklat">
+                <button class="knob" id="stationKnob" type="button" aria-label="Kanal seçici. 90 derece döndürerek kanal seç, basarak oynat veya duraklat." title="90° döndür: kanal · Bas: oynat/duraklat">
                     <span><span class="knob-value" id="stationValue">01/12</span><span class="knob-hint">KANAL</span></span>
                 </button>
-                <div class="gesture-hint">Döndür: kanal · Bas: oynat / duraklat</div>
+                <div class="gesture-hint">90° döndür: kanal · Bas: oynat / duraklat</div>
             </div>
         </section>
 
         <button class="btn screensaver-toggle" id="screensaverToggle" type="button" onclick="toggleScreensaver(true)">AMOLED EKRAN KORUYUCU</button>
         <h1 class="section-title">İSTASYONLAR</h1>
         <div class="station-list" id="stationList"></div>
-        <div class="toolbar">
-            <button class="btn btn-primary" type="button" onclick="openModal()">＋ İSTASYON EKLE</button>
-            <button class="btn btn-stop" type="button" onclick="stopRadio()">DURDUR</button>
-        </div>
-        <div class="restore-row">
-            <button class="btn" type="button" onclick="openRestoreModal()">VARSAYILANLARI GERİ YÜKLE</button>
-        </div>
         <details class="archived-stations" id="archivedStationsSection">
             <summary id="archivedStationsSummary">GİZLİ KANALLAR · 0</summary>
             <div class="archived-list" id="archivedStationsList"></div>
         </details>
         <details class="settings-menu">
-            <summary>MENÜ · OTOMATİK DAVRANIŞ</summary>
+            <summary>MENÜ · AYARLAR</summary>
             <div class="settings-options">
                 <label class="setting-row" for="chargeStartSetting">
                     <span>Şarja takılınca radyoyu başlat</span>
@@ -373,12 +381,27 @@
                     <span>Bluetooth bağlanınca son radyoyu çal</span>
                     <input id="bluetoothPlaySetting" type="checkbox">
                 </label>
+                <label class="setting-row" for="chargeScreensaverSetting">
+                    <span>Şarja takılınca AMOLED ekran koruyucuyu aç</span>
+                    <input id="chargeScreensaverSetting" type="checkbox">
+                </label>
+                <label class="setting-row" for="reorderStationsSetting">
+                    <span>Kanal sırasını düzenle</span>
+                    <input id="reorderStationsSetting" type="checkbox">
+                </label>
             </div>
             <div class="catalog-actions">
+                <button class="btn btn-primary" type="button" onclick="openModal()">＋ İSTASYON EKLE</button>
+                <button class="btn btn-stop" type="button" onclick="stopRadio()">DURDUR</button>
+                <button class="btn" type="button" onclick="openRestoreModal()">VARSAYILANLARI GERİ YÜKLE</button>
                 <button class="btn" type="button" onclick="fetchStationCatalog()">KANAL LİSTESİNİ GÜNCELLE</button>
                 <p class="catalog-source">Kaynak: atmacali/KlasikRadyo · stations.json</p>
                 <button class="btn" type="button" onclick="suggestSelectedStation()">SEÇİLİ KANALI GITHUB'A ÖNER</button>
                 <p class="catalog-status" id="catalogStatus" role="status">Kanal önerisi GitHub'da açılır; son göndermeyi siz onaylarsınız.</p>
+                <label for="suggestionWorkerUrl">Cloudflare Worker API adresi</label>
+                <input id="suggestionWorkerUrl" class="input-field" type="url" inputmode="url" placeholder="https://...workers.dev">
+                <button class="btn" type="button" onclick="saveSuggestionWorkerUrl()">API adresini kaydet</button>
+                <button class="btn" id="submitSuggestionButton" type="button" onclick="submitStationSuggestion()">API ile GitHub'a kanal önerisi gönder</button>
             </div>
         </details>
     </main>
@@ -412,6 +435,8 @@
         const catalogBaselineKey = 'retro_catalog_baseline';
         const catalogDeletedKey = 'retro_catalog_deleted';
         const catalogArchivedKey = 'retro_catalog_archived';
+        const stationOrderKey = 'retro_station_order';
+        const suggestionWorkerUrlKey = 'retro_suggestion_worker_url';
         const defaultStations = [
             { id: '1', defaultKey: '1', name: 'Radyo Fenomen 100.4 FM', url: 'https://live.radyofenomen.com/fenomen/128/icecast.audio', fav: false },
             { id: '2', defaultKey: '2', name: 'Süper FM 90.8', url: 'https://25593.live.streamtheworld.com:443/SUPER_FM.mp3', fav: false },
@@ -502,6 +527,8 @@
         let volume = 70;
         let editingStationId = null;
         let screensaverActive = false;
+        let screensaverShiftIndex = 0;
+        let reorderStationsMode = localStorage.getItem('retro_reorder_mode') === 'true';
         let archivedCatalogStations = loadLocalJson(catalogArchivedKey, []);
         let catalogDeletedIds = new Set(loadLocalJson(catalogDeletedKey, []));
         let catalogBaseline = loadLocalJson(catalogBaselineKey, []);
@@ -550,8 +577,68 @@
         }
 
         function sortedStations() {
-            return [...stations].sort((a, b) => Number(Boolean(b.fav)) - Number(Boolean(a.fav)));
+            const position = new Map(stationOrder.map((id, index) => [id, index]));
+            return [...stations].sort((a, b) =>
+                Number(Boolean(b.fav)) - Number(Boolean(a.fav)) ||
+                (position.get(a.id) ?? Number.MAX_SAFE_INTEGER) -
+                    (position.get(b.id) ?? Number.MAX_SAFE_INTEGER)
+            );
         }
+
+        function loadStationOrder() {
+            try {
+                const saved = JSON.parse(localStorage.getItem(stationOrderKey) || '[]');
+                const validSaved = Array.isArray(saved)
+                    ? saved.filter(id => typeof id === 'string' && stations.some(station => station.id === id))
+                    : [];
+                return [...new Set([...validSaved, ...stations.map(station => station.id)])];
+            } catch {
+                return stations.map(station => station.id);
+            }
+        }
+
+        let stationOrder = loadStationOrder();
+
+        function persistStationOrder() {
+            const liveIds = new Set(stations.map(station => station.id));
+            const currentOrder = stationOrder.filter(id => liveIds.has(id));
+            stationOrder = [
+                ...currentOrder,
+                ...stations.map(station => station.id).filter(id => !currentOrder.includes(id))
+            ];
+            try {
+                localStorage.setItem(stationOrderKey, JSON.stringify(stationOrder));
+            } catch {
+                setCatalogStatus('Kanal sırası kaydedilemedi. Cihazın depolama alanını kontrol edin.', true);
+            }
+        }
+
+        function moveStation(id, direction) {
+            const ordered = sortedStations();
+            const index = ordered.findIndex(station => station.id === id);
+            const target = index + direction;
+            if (index < 0 || target < 0 || target >= ordered.length ||
+                Boolean(ordered[index].fav) !== Boolean(ordered[target].fav)
+            ) return;
+            stationOrder = ordered.map(station => station.id);
+            [stationOrder[index], stationOrder[target]] =
+                [stationOrder[target], stationOrder[index]];
+            saveAndRender();
+        }
+
+        function setScreensaverShift(index) {
+            const positions = [[0, 0], [8, -8], [-8, -6], [-6, 8], [8, 6], [0, -10], [-10, 0], [0, 10]];
+            const [x, y] = positions[index % positions.length];
+            document.body.style.setProperty('--screensaver-shift-x', `${x}px`);
+            document.body.style.setProperty('--screensaver-shift-y', `${y}px`);
+        }
+
+        function shiftScreensaverPixels() {
+            if (!screensaverActive) return;
+            screensaverShiftIndex = (screensaverShiftIndex + 1) % 8;
+            setScreensaverShift(screensaverShiftIndex);
+        }
+        setInterval(shiftScreensaverPixels, 45_000);
 
         function selectedStation() {
             return stations.find(station => station.id === currentStationId) || null;
@@ -602,6 +689,10 @@
 
         function toggleScreensaver(active = !screensaverActive) {
             screensaverActive = Boolean(active);
+            if (screensaverActive) {
+                screensaverShiftIndex = (screensaverShiftIndex + 1) % 8;
+                setScreensaverShift(screensaverShiftIndex);
+            }
             updateDisplay();
         }
 
@@ -629,6 +720,26 @@
 
                 const actions = document.createElement('div');
                 actions.className = 'station-actions';
+
+                if (reorderStationsMode) {
+                    const ordered = sortedStations();
+                    const index = ordered.findIndex(item => item.id === station.id);
+                    [-1, 1].forEach(direction => {
+                        const neighbor = ordered[index + direction];
+                        const moveButton = document.createElement('button');
+                        moveButton.className = 'icon-btn';
+                        moveButton.type = 'button';
+                        moveButton.textContent = direction < 0 ? '↑' : '↓';
+                        moveButton.setAttribute(
+                            'aria-label',
+                            `${station.name} kanalını ${direction < 0 ? 'yukarı' : 'aşağı'} taşı`
+                        );
+                        moveButton.disabled = !neighbor ||
+                            Boolean(neighbor.fav) !== Boolean(station.fav);
+                        moveButton.addEventListener('click', () => moveStation(station.id, direction));
+                        actions.append(moveButton);
+                    });
+                }
 
                 const editButton = document.createElement('button');
                 editButton.className = 'icon-btn';
@@ -681,7 +792,7 @@
         function setCatalogStatus(message, isError = false) {
             const status = document.getElementById('catalogStatus');
             status.textContent = message;
-            status.style.color = isError ? '#fca5a5' : '#aab4c0';
+            status.style.color = isError ? '#ccc' : '#aaa';
         }
 
         function activateArchivedStation(id) {
@@ -984,6 +1095,10 @@
                 })),
                 ...customStations
             ];
+            stationOrder = [
+                ...defaultStations.map(station => station.id),
+                ...customStations.map(station => station.id)
+            ];
             const restoredIds = new Set(defaultStations.map(station => station.id));
             restoredIds.forEach(id => catalogDeletedIds.delete(id));
             archivedCatalogStations = archivedCatalogStations.filter(station => !restoredIds.has(station.id));
@@ -998,6 +1113,7 @@
 
         function saveAndRender() {
             persistStations(stations);
+            persistStationOrder();
             syncNativePlaylist();
             updateDisplay();
         }
@@ -1025,10 +1141,11 @@
             updateDisplay();
         }
 
-        function applyAutomationSettingsFromNative(autoStartOnCharge, stopOnUnplug, bluetoothAutoPlay) {
+        function applyAutomationSettingsFromNative(autoStartOnCharge, stopOnUnplug, bluetoothAutoPlay, chargeScreensaver) {
             document.getElementById('chargeStartSetting').checked = Boolean(autoStartOnCharge);
             document.getElementById('unplugStopSetting').checked = Boolean(stopOnUnplug);
             document.getElementById('bluetoothPlaySetting').checked = Boolean(bluetoothAutoPlay);
+            document.getElementById('chargeScreensaverSetting').checked = Boolean(chargeScreensaver);
         }
 
         function setupAutomationSettings() {
@@ -1037,7 +1154,8 @@
             applyAutomationSettingsFromNative(
                 bridge.getAutoStartOnChargeEnabled(),
                 bridge.getStopOnUnplugEnabled(),
-                bridge.getBluetoothAutoPlayEnabled()
+                bridge.getBluetoothAutoPlayEnabled(),
+                bridge.getChargeScreensaverEnabled()
             );
             document.getElementById('chargeStartSetting').addEventListener('change', event => {
                 bridge.setAutoStartOnChargeEnabled(event.target.checked);
@@ -1051,6 +1169,88 @@
                     event.target.checked = bridge.getBluetoothAutoPlayEnabled();
                 }
             });
+            document.getElementById('chargeScreensaverSetting').addEventListener('change', event => {
+                bridge.setChargeScreensaverEnabled(event.target.checked);
+            });
+            const reorderSetting = document.getElementById('reorderStationsSetting');
+            reorderSetting.checked = reorderStationsMode;
+            reorderSetting.addEventListener('change', event => {
+                reorderStationsMode = event.target.checked;
+                try {
+                    localStorage.setItem('retro_reorder_mode', String(reorderStationsMode));
+                } catch {
+                    setCatalogStatus('Kanal düzenleme ayarı kaydedilemedi.', true);
+                }
+                updateDisplay();
+            });
+            document.getElementById('suggestionWorkerUrl').value =
+                localStorage.getItem(suggestionWorkerUrlKey) || '';
+        }
+
+        function saveSuggestionWorkerUrl() {
+            const input = document.getElementById('suggestionWorkerUrl');
+            const rawUrl = input.value.trim();
+            if (rawUrl) {
+                try {
+                    const parsed = new URL(rawUrl);
+                    if (parsed.protocol !== 'https:' || !parsed.hostname ||
+                        parsed.username || parsed.password || parsed.search || parsed.hash
+                    ) throw new Error('Invalid Worker URL');
+                    if (parsed.pathname === '/') parsed.pathname = '/submit';
+                    if (parsed.pathname !== '/submit') throw new Error('Invalid Worker endpoint');
+                    localStorage.setItem(suggestionWorkerUrlKey, parsed.href);
+                } catch {
+                    setCatalogStatus('HTTPS biçimindeki geçerli Cloudflare Worker adresini girin.', true);
+                    return;
+                }
+            } else {
+                localStorage.removeItem(suggestionWorkerUrlKey);
+            }
+            setCatalogStatus(rawUrl
+                ? 'Worker API adresi bu cihazda kaydedildi.'
+                : 'Worker API adresi kaldırıldı.');
+        }
+
+        function setStationSuggestionResult(success, message, issueUrl) {
+            const status = document.getElementById('catalogStatus');
+            status.replaceChildren(document.createTextNode(message));
+            if (success && issueUrl) {
+                const link = document.createElement('a');
+                link.href = issueUrl;
+                link.textContent = ' GitHub önerisini görüntüle';
+                link.addEventListener('click', event => {
+                    event.preventDefault();
+                    if (!window.AndroidBridge?.openStationIssue?.(issueUrl)) {
+                        setCatalogStatus('GitHub issue bağlantısı açılamadı.', true);
+                    }
+                });
+                status.append(link);
+            }
+            status.style.color = success ? '#aaa' : '#ccc';
+            document.getElementById('submitSuggestionButton').disabled = false;
+        }
+
+        function submitStationSuggestion() {
+            const station = selectedStation();
+            const workerUrl = localStorage.getItem(suggestionWorkerUrlKey);
+            if (!station) {
+                setCatalogStatus('Önce önerilecek bir kanal seçin.', true);
+                return;
+            }
+            if (!workerUrl) {
+                setCatalogStatus('Önce Cloudflare Worker API adresini kaydedin.', true);
+                return;
+            }
+            if (!window.confirm(`“${station.name}” kanalının adı ve yayın adresi GitHub deposunda bir issue olarak yayınlanacak. Gönderilsin mi?`)) {
+                return;
+            }
+            document.getElementById('submitSuggestionButton').disabled = true;
+            setCatalogStatus('İstasyon önerisi gönderiliyor…');
+            if (!window.AndroidBridge || typeof window.AndroidBridge.submitStationSuggestion !== 'function') {
+                setStationSuggestionResult(false, 'API gönderimi yalnızca Android uygulamasında desteklenir.');
+                return;
+            }
+            window.AndroidBridge.submitStationSuggestion(workerUrl, station.name, station.url);
         }
 
         function resumeLastStationOnLaunch() {
@@ -1069,9 +1269,18 @@
             element.addEventListener('pointerdown', event => {
                 if (event.button !== 0 && event.pointerType !== 'touch') return;
                 const bounds = element.getBoundingClientRect();
+                const centerX = bounds.left + bounds.width / 2;
+                const centerY = bounds.top + bounds.height / 2;
+                if (Math.hypot(event.clientX - centerX, event.clientY - centerY) < bounds.width * 0.18) {
+                    lastAngle = null;
+                    accumulated = 0;
+                    gestureMoved = false;
+                    element.setPointerCapture(event.pointerId);
+                    return;
+                }
                 lastAngle = Math.atan2(
-                    event.clientY - bounds.top - bounds.height / 2,
-                    event.clientX - bounds.left - bounds.width / 2
+                    event.clientY - centerY,
+                    event.clientX - centerX
                 ) * 180 / Math.PI;
                 accumulated = 0;
                 gestureMoved = false;
@@ -1080,13 +1289,24 @@
             element.addEventListener('pointermove', event => {
                 if (lastAngle === null) return;
                 const bounds = element.getBoundingClientRect();
+                const centerX = bounds.left + bounds.width / 2;
+                const centerY = bounds.top + bounds.height / 2;
+                if (Math.hypot(event.clientX - centerX, event.clientY - centerY) < bounds.width * 0.18) {
+                    lastAngle = null;
+                    return;
+                }
                 const angle = Math.atan2(
-                    event.clientY - bounds.top - bounds.height / 2,
-                    event.clientX - bounds.left - bounds.width / 2
+                    event.clientY - centerY,
+                    event.clientX - centerX
                 ) * 180 / Math.PI;
+                if (lastAngle === null) {
+                    lastAngle = angle;
+                    return;
+                }
                 const delta = ((angle - lastAngle + 540) % 360) - 180;
                 lastAngle = angle;
-                if (Math.abs(delta) >= 4) gestureMoved = true;
+                if (Math.abs(delta) < 2) return;
+                if (Math.abs(delta) >= 3) gestureMoved = true;
                 accumulated += delta;
                 const threshold = getThreshold();
                 if (resetAfterStep && Math.abs(accumulated) >= threshold) {
@@ -1167,7 +1387,7 @@
         setupKnob(
             document.getElementById('stationKnob'),
             changeStation,
-            () => 181,
+            () => 90,
             true
         );
         const savedStationId = loadSelectedStationId();

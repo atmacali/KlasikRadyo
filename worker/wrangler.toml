@@ -1,0 +1,16 @@
+name = "retroradyo-station-suggestions"
+main = "index.mjs"
+compatibility_date = "2024-12-01"
+workers_dev = true
+
+[vars]
+GITHUB_OWNER = "atmacali"
+GITHUB_REPO = "KlasikRadyo"
+
+[[ratelimits]]
+name = "SUBMISSION_LIMITER"
+namespace_id = "1001"
+
+  [ratelimits.simple]
+  limit = 5
+  period = 60
