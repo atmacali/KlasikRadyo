@@ -2,7 +2,6 @@ package com.retroradyo.app
 
 import android.app.Activity
 import android.content.ComponentName
-import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
@@ -22,8 +21,6 @@ import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.google.common.util.concurrent.ListenableFuture
-import java.net.HttpURLConnection
-import java.net.URL
 
 class MainActivity : Activity() {
 
@@ -430,157 +427,38 @@ class MainActivity : Activity() {
         }
 
         @JavascriptInterface
-        fun openStationSuggestion(name: String, url: String): Boolean {
-            val safeName = name.trim()
-            val safeUrl = url.trim()
-            val parsedUrl = runCatching { Uri.parse(safeUrl) }.getOrNull()
-            val scheme = parsedUrl?.scheme
-            if (safeName.isEmpty() || (scheme != "http" && scheme != "https") ||
-                parsedUrl?.host.isNullOrBlank()
-            ) {
-                return false
-            }
-
-            val body = """
-                ### Station name
-
-                $safeName
-
-                ### Stream URL
-
-                $safeUrl
-
-                ### Notes
-
-                Suggested from RetroRadyo. Please verify that this is a publicly accessible radio stream.
-            """.trimIndent()
-            val issueUri = Uri.Builder()
-                .scheme("https")
-                .authority("github.com")
-                .appendPath("atmacali")
-                .appendPath("KlasikRadyo")
-                .appendPath("issues")
-                .appendPath("new")
-                .appendQueryParameter("template", "station-suggestion.md")
-                .appendQueryParameter("title", "Station suggestion: $safeName")
-                .appendQueryParameter("body", body)
-                .build()
-            return try {
-                startActivity(Intent(Intent.ACTION_VIEW, issueUri))
-                true
-            } catch (e: ActivityNotFoundException) {
-                false
-            } catch (e: SecurityException) {
-                false
-            }
-        }
-
-        @JavascriptInterface
-        fun submitStationSuggestion(workerUrl: String, name: String, streamUrl: String) {
-            val workerUri = runCatching { Uri.parse(workerUrl.trim()) }.getOrNull()
+        fun registerStationForUpload(id: String, name: String, streamUrl: String): Boolean {
             val stationName = name.trim()
             val stationUri = runCatching { Uri.parse(streamUrl.trim()) }.getOrNull()
-            if (workerUri == null || workerUri.scheme != "https" || workerUri.host.isNullOrBlank() ||
-                !workerUri.userInfo.isNullOrEmpty() || !workerUri.query.isNullOrEmpty() ||
-                !workerUri.fragment.isNullOrEmpty() || stationName.isBlank() ||
+            if (!id.startsWith("custom-") || id.length > 100 || stationName.isBlank() ||
                 stationName.length > 120 || stationName.any { Character.isISOControl(it) } ||
-                stationUri == null ||
-                stationUri.scheme !in setOf("http", "https") ||
+                stationUri == null || stationUri.scheme !in setOf("http", "https") ||
                 stationUri.host.isNullOrBlank() || streamUrl.length > 2048 ||
                 streamUrl.any { Character.isISOControl(it) || it.isWhitespace() }
             ) {
-                reportSuggestionResult(false, "Worker veya istasyon bilgisi geçersiz.", null)
-                return
-            }
-
-            Thread {
-                var connection: HttpURLConnection? = null
-                try {
-                    connection = URL(workerUri.toString()).openConnection() as HttpURLConnection
-                    connection.requestMethod = "POST"
-                    connection.instanceFollowRedirects = false
-                    connection.connectTimeout = 10_000
-                    connection.readTimeout = 10_000
-                    connection.doOutput = true
-                    connection.setRequestProperty("Content-Type", "application/json; charset=utf-8")
-                    val payload = org.json.JSONObject()
-                        .put("stationName", stationName)
-                        .put("streamUrl", streamUrl.trim())
-                        .toString()
-                    connection.outputStream.use { output ->
-                        output.write(payload.toByteArray(Charsets.UTF_8))
-                    }
-                    val statusCode = connection.responseCode
-                    val responseStream = if (statusCode in 200..299) {
-                        connection.inputStream
-                    } else {
-                        connection.errorStream
-                    }
-                    val response = responseStream?.bufferedReader()?.use { it.readText() }.orEmpty()
-                    val result = runCatching { org.json.JSONObject(response) }.getOrNull()
-                    val issueUri = runCatching {
-                        Uri.parse(result?.optString("issueUrl").orEmpty())
-                    }.getOrNull()
-                    val safeIssueUrl = issueUri?.takeIf {
-                        it.scheme == "https" && it.host == "github.com" &&
-                            it.pathSegments.size >= 4 &&
-                            it.pathSegments[0] == "atmacali" &&
-                            it.pathSegments[1] == "KlasikRadyo" &&
-                            it.pathSegments[2] == "issues" &&
-                            it.pathSegments[3].toLongOrNull() != null
-                    }?.toString()
-                    val success = statusCode in 200..299 && result?.optBoolean("ok") == true &&
-                        safeIssueUrl != null
-                    val message = if (success) {
-                        "Öneri GitHub'a gönderildi."
-                    } else {
-                        result?.optString("error")?.takeIf { it.isNotBlank() }
-                            ?: "Worker isteği başarısız oldu (HTTP $statusCode)."
-                    }
-                    reportSuggestionResult(success, message, safeIssueUrl)
-                } catch (error: Exception) {
-                    reportSuggestionResult(
-                        false,
-                        "Worker API'ye bağlanılamadı: ${error.message ?: "ağ hatası"}",
-                        null
-                    )
-                } finally {
-                    connection?.disconnect()
-                }
-            }.start()
-        }
-
-        @JavascriptInterface
-        fun openStationIssue(issueUrl: String): Boolean {
-            val issueUri = runCatching { Uri.parse(issueUrl) }.getOrNull()
-            if (issueUri?.scheme != "https" || issueUri.host != "github.com" ||
-                issueUri.pathSegments.size != 4 ||
-                issueUri.pathSegments[0] != "atmacali" ||
-                issueUri.pathSegments[1] != "KlasikRadyo" ||
-                issueUri.pathSegments[2] != "issues" ||
-                issueUri.pathSegments[3].toLongOrNull() == null
-            ) {
                 return false
             }
-            return try {
-                startActivity(Intent(Intent.ACTION_VIEW, issueUri))
-                true
-            } catch (e: ActivityNotFoundException) {
-                false
-            } catch (e: SecurityException) {
-                false
-            }
-        }
-
-        private fun reportSuggestionResult(success: Boolean, message: String, issueUrl: String?) {
-            val callback = "setStationSuggestionResult(" +
-                "$success,${org.json.JSONObject.quote(message)}," +
-                "${org.json.JSONObject.quote(issueUrl.orEmpty())})"
-            runOnUiThread {
-                if (::webView.isInitialized && !isDestroyed) {
-                    webView.evaluateJavascript(callback, null)
-                }
-            }
+            val preferences = getSharedPreferences(STATION_UPLOAD_PREFERENCES, MODE_PRIVATE)
+            val pending = runCatching {
+                org.json.JSONArray(preferences.getString(PENDING_STATION_UPLOADS_KEY, "[]"))
+            }.getOrElse { org.json.JSONArray() }
+            val existing = (0 until pending.length())
+                .mapNotNull { pending.optJSONObject(it) }
+                .firstOrNull { it.optString("id") == id }
+            val updated = org.json.JSONArray()
+            (0 until pending.length())
+                .mapNotNull { pending.optJSONObject(it) }
+                .filterNot { it.optString("id") == id }
+                .forEach(updated::put)
+            updated.put(
+                org.json.JSONObject()
+                    .put("id", id)
+                    .put("name", stationName)
+                    .put("url", streamUrl.trim())
+                    .put("lastAttemptAt", existing?.optLong("lastAttemptAt", 0L) ?: 0L)
+            )
+            preferences.edit().putString(PENDING_STATION_UPLOADS_KEY, updated.toString()).apply()
+            return true
         }
 
         @JavascriptInterface
@@ -715,6 +593,9 @@ class MainActivity : Activity() {
         private const val STATION_PLAYLIST_KEY = "station_playlist_json"
         private const val VOLUME_KEY = "volume"
         private const val DEFAULT_VOLUME = 0.7f
+        const val STATION_UPLOAD_PREFERENCES = "station_upload_state"
+        const val PENDING_STATION_UPLOADS_KEY = "pending_station_uploads"
+        const val SENT_STATION_FINGERPRINTS_KEY = "sent_station_fingerprints"
         private const val AUTOMATION_PREFERENCES = "radio_automation"
         private const val AUTO_START_ON_CHARGE = "auto_start_on_charge"
         private const val STOP_ON_UNPLUG = "stop_on_unplug"
@@ -747,6 +628,18 @@ class MainActivity : Activity() {
                 activity.runOnUiThread(handleAction)
             }
             return true
+        }
+
+        fun dispatchStationUploadStatus(message: String, isError: Boolean) {
+            val activity = synchronized(foregroundActivityLock) { foregroundActivity } ?: return
+            if (activity.isFinishing || activity.isDestroyed) return
+            val script = "showStationUploadStatus(" +
+                "${org.json.JSONObject.quote(message)},$isError)"
+            activity.runOnUiThread {
+                if (!activity.isFinishing && !activity.isDestroyed && activity.pageReady) {
+                    activity.webView.evaluateJavascript(script, null)
+                }
+            }
         }
 
         const val ACTION_POWER_CONNECTED = "com.retroradyo.app.POWER_CONNECTED"

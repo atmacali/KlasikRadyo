@@ -24,7 +24,6 @@ Android Studio'da bu klasörü açıp Gradle senkronizasyonunu tamamla. Ardında
 - Telefon yatay çevrildiğinde daha büyük ve aralıklı ses/kanal düğmeleri
 - **Menü** içinden şarja takılınca radyo başlatma, şarjdan çıkarınca durdurma, Bluetooth otomatik çalma ve şarja takılınca AMOLED ekran koruyucu seçeneklerini ayrı ayrı açıp kapatma
 - Menüden GitHub'daki ortak `stations.json` kanal kataloğunu elle güncelleme; silinen katalog kanallarını gizli listeden isteğe bağlı geri etkinleştirme
-- Seçili kanalı GitHub öneri formuna veya yapılandırılmış Worker API üzerinden, açık kullanıcı onayıyla gönderme
 - Ses düğmesinde seçilen son ses seviyesini uygulama açılışları ve servis yeniden başlatmaları arasında koruma
 - Favori işaretleme (kanal düzenlenirken korunur)
 - Bluetooth kulaklık/medya kontrolleriyle oynat/duraklat ve ileri/geri kanal değiştirme
@@ -58,48 +57,12 @@ Katalogda artık bulunmayan veya kullanıcı tarafından silinmiş katalog kanal
 **Gizli kanallar** bölümüne alınır; **Etkinleştir** ile tekrar görünür yapılır. Güncelleme düğmesi ağ bağlantısı
 gerektirir; GitHub'a kataloğu değiştirmek için depo sahibi `stations.json` dosyasını günceller ve GitHub'a gönderir.
 
-**Seçili kanalı GitHub'a öner** düğmesi, seçili kanal adı ve yayın adresi önceden doldurulmuş bir GitHub issue
-formu açar; bu eski, elle gönderilen yol olarak kalır. Worker API kurulduktan sonra menüdeki adres alanına
-`https://<worker-adiniz>.workers.dev` adresini yapıştırıp **API adresini kaydet** seçin. Ardından
-**API ile GitHub'a kanal önerisi gönder** düğmesine basıp onaylayınca Worker yeni bir GitHub issue oluşturur
-ve issue bağlantısını gösterir. API gönderimi için GitHub'da ayrıca Submit düğmesine basmanız gerekmez.
-Uygulamaya GitHub parolası veya token girilmez; Worker token'ı Cloudflare'de gizli tutulur.
-
-### Ücretsiz Cloudflare Worker API kurulumu
-
-Worker kaynak kodu `worker/index.mjs`, yapılandırması `worker/wrangler.toml` içindedir. Kurulumu bir
-bilgisayarda, Node.js LTS kurulu iken yap:
-
-1. Depoyu GitHub'a gönder/merge et ve bilgisayara klonla. GitHub deposunda
-   **Settings > Developer settings > Personal access tokens > Fine-grained tokens** bölümünde token oluştur.
-   Resource owner olarak `atmacali`, yalnızca `KlasikRadyo` deposunu seç; **Repository permissions > Issues**
-   iznini **Read and write** yap. Başka izin verme ve mümkün olan kısa son kullanma tarihini seç.
-2. Cloudflare hesabı açıp ücretsiz Workers planını etkinleştir. PowerShell/terminalde depo köküne gidip:
-   ```powershell
-   cd .\worker
-   npx wrangler login
-   npx wrangler deploy
-   npx wrangler secret put GITHUB_TOKEN
-   ```
-   Son komut sorunca az önce oluşturduğun token'ı terminale yapıştır. `wrangler.toml` içindeki `1001`
-   rate-limit namespace numarası Cloudflare hesabında benzersiz olmalı; çakışma uyarısı alırsan boş bir
-   pozitif sayı seçip dosyadaki değeri değiştir ve tekrar deploy et. Token yalnızca Worker secret olarak
-   saklanır; **uygulamaya, GitHub deposuna veya sohbete yapıştırma**. Worker ayarındaki depo sahibi/ismi
-   zaten `atmacali/KlasikRadyo` olarak tanımlıdır. Rate-limit binding aynı Cloudflare konumu başına IP'ye
-   yaklaşık dakikada 5 istek uygular; mobil ağlarda aynı dış IP'yi paylaşanlar bu sınırı paylaşabilir.
-3. `deploy` çıktısındaki `https://...workers.dev` adresini RetroRadyo **Menü** bölümündeki
-   **Cloudflare Worker API adresi** alanına girip kaydet. İstersen önce sonuna `/health` ekleyerek
-   `{ "ok": true }` yanıtını kontrol et. Uygulama `/submit` yolunu kendisi ekler.
-4. İstasyon seçip **API ile GitHub'a kanal önerisi gönder** seçeneğine bas. Onaydan sonra GitHub issue
-   oluşturulur ve bağlantısı uygulamada görünür. Worker'ı değiştirdiğinde `cd .\worker; npx wrangler deploy`
-   ile yeniden yayınla. Token sızarsa GitHub'dan iptal edip yeni token'ı `npx wrangler secret put GITHUB_TOKEN`
-   ile Worker'a kaydet.
-
-Cloudflare ücretsiz katmanı çoğu kişisel kullanım için yeterlidir; sağlayıcı kota ve koşulları değişebilir.
-Worker URL'si herkese açık olduğundan başkaları da çağırabilir; dakikada 5/IP sınırı yaklaşık olup kesin
-veya küresel bir kota değildir. Token yalnızca Issues yazabilir. Kötüye kullanım görürsen token'ı iptal et
-ve Worker'ı sil veya sınırı düşür. Worker GitHub'da doğrudan issue açar, bu yüzden uygulamadaki onay
-penceresini dikkatle kullan. API çalışmazsa eski GitHub formu kullanılabilir. URL ve istasyon adı Worker'a HTTPS üzerinden gider.
+Yeni özel istasyon eklerken çıkan onay penceresinde **Tamam** seçilirse, istasyon ilk kez gerçekten
+çalarken adı ve yayın adresi ortak kanala gönderilmek üzere paylaşılır ve GitHub'da bir issue oluşturulur.
+**İptal** seçilirse istasyon yalnızca bu telefonda kalır. API ayarı veya gizli anahtar uygulamada
+bulunmaz; istek HTTPS üzerinden sunucu tarafındaki Worker'a gider. Başarısız gönderim radyo çalmayı
+etkilemez; bildirim/durum alanında hata gösterilir ve istasyon daha sonra yeniden çalındığında tekrar denenir.
+Başarılı gönderimler ve aynı ad+adresin tekrarları cihazda izlenerek yinelenen issue'lar önlenmeye çalışılır.
 
 Uygulama arka plandaysa servis yayın başlatabilir. Şarj ekran koruyucusu ayarı açık olsa bile Android uygulama
 ekranını kendiliğinden açmayabilir; kalıcı bildirime dokununca şarj ekran koruyucusunu açar. Android 10 ve üzeri arka plandan aktivite açılmasını

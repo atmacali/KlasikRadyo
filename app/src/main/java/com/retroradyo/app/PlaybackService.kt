@@ -11,6 +11,8 @@ import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.os.BatteryManager
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
@@ -23,6 +25,10 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import org.json.JSONArray
+import org.json.JSONObject
+import java.net.HttpURLConnection
+import java.net.URL
+import java.security.MessageDigest
 
 class PlaybackService : MediaSessionService() {
     private var mediaSession: MediaSession? = null
@@ -32,6 +38,9 @@ class PlaybackService : MediaSessionService() {
     private var powerReceiverRegistered = false
     private var bluetoothReceiverRegistered = false
     private var isCharging = false
+    private var notificationStatusMessage: String? = null
+    private var notificationStatusGeneration = 0
+    private val mainHandler = Handler(Looper.getMainLooper())
     private val bluetoothReceiver = object : android.content.BroadcastReceiver() {
         override fun onReceive(context: android.content.Context, intent: Intent) {
             if (intent.action == BluetoothDevice.ACTION_ACL_CONNECTED &&
@@ -49,10 +58,14 @@ class PlaybackService : MediaSessionService() {
                     .putString(SELECTED_STATION_KEY, stationId)
                     .apply()
             }
+            if (mediaSession?.player?.isPlaying == true) {
+                submitCurrentStationIfPending()
+            }
         }
 
         override fun onIsPlayingChanged(isPlaying: Boolean) {
             updateMonitorNotification(isPlaying, startForeground = true)
+            if (isPlaying) submitCurrentStationIfPending()
         }
 
         override fun onVolumeChanged(volume: Float) {
@@ -234,6 +247,169 @@ class PlaybackService : MediaSessionService() {
         )
     }
 
+    private fun submitCurrentStationIfPending() {
+        val currentMediaId = mediaSession?.player?.currentMediaItem?.mediaId ?: return
+        val preferences = getSharedPreferences(
+            MainActivity.STATION_UPLOAD_PREFERENCES,
+            MODE_PRIVATE
+        )
+        val pending = runCatching {
+            JSONArray(preferences.getString(MainActivity.PENDING_STATION_UPLOADS_KEY, "[]"))
+        }.getOrElse { return }
+        val index = (0 until pending.length()).firstOrNull {
+            pending.optJSONObject(it)?.optString("id") == currentMediaId
+        } ?: return
+        val candidate = pending.optJSONObject(index) ?: return
+        val stationName = candidate.optString("name").trim()
+        val streamUrl = candidate.optString("url").trim()
+        if (stationName.isBlank() || streamUrl.isBlank()) return
+
+        val fingerprint = stationFingerprint(stationName, streamUrl)
+        val sent = runCatching {
+            JSONArray(preferences.getString(MainActivity.SENT_STATION_FINGERPRINTS_KEY, "[]"))
+        }.getOrElse { JSONArray() }
+        if ((0 until sent.length()).any { sent.optString(it) == fingerprint }) {
+            removePendingUpload(preferences, currentMediaId)
+            return
+        }
+
+        val now = System.currentTimeMillis()
+        val lastAttemptAt = candidate.optLong("lastAttemptAt", 0L)
+        if (now - lastAttemptAt < UPLOAD_RETRY_DELAY_MS) return
+        candidate.put("lastAttemptAt", now)
+        preferences.edit().putString(MainActivity.PENDING_STATION_UPLOADS_KEY, pending.toString())
+            .apply()
+
+        Thread({
+            var connection: HttpURLConnection? = null
+            try {
+                connection = URL(STATION_SUGGESTION_ENDPOINT).openConnection() as HttpURLConnection
+                connection.requestMethod = "POST"
+                connection.instanceFollowRedirects = false
+                connection.connectTimeout = UPLOAD_TIMEOUT_MS
+                connection.readTimeout = UPLOAD_TIMEOUT_MS
+                connection.doOutput = true
+                connection.setRequestProperty("Content-Type", "application/json; charset=utf-8")
+                val requestBody = JSONObject()
+                    .put("stationName", stationName)
+                    .put("streamUrl", streamUrl)
+                    .toString()
+                    .toByteArray(Charsets.UTF_8)
+                connection.setFixedLengthStreamingMode(requestBody.size)
+                connection.outputStream.use { it.write(requestBody) }
+
+                val statusCode = connection.responseCode
+                val responseStream = if (statusCode in 200..299) {
+                    connection.inputStream
+                } else {
+                    connection.errorStream
+                }
+                val responseText = responseStream?.bufferedReader()?.use { reader ->
+                    val buffer = CharArray(MAX_RESPONSE_CHARS)
+                    val count = reader.read(buffer)
+                    if (count > 0) String(buffer, 0, count) else ""
+                }.orEmpty()
+                val response = runCatching { JSONObject(responseText) }.getOrNull()
+                val issueUrl = response?.optString("issueUrl").orEmpty()
+                val success = statusCode == 201 && response?.optBoolean("ok") == true &&
+                    isValidIssueUrl(issueUrl)
+                val message = if (success) {
+                    "Kanal ilk kez çaldı; adı ve adresi paylaşıldı."
+                } else {
+                    response?.optString("error")?.takeIf { it.isNotBlank() }
+                        ?: "Kanal paylaşımı başarısız oldu (HTTP $statusCode). Yeniden denenecek."
+                }
+                mainHandler.post {
+                    completeStationUpload(
+                        currentMediaId,
+                        fingerprint,
+                        success,
+                        message
+                    )
+                }
+            } catch (error: Exception) {
+                val message = "Kanal paylaşımı başarısız oldu: " +
+                    "${error.message ?: "ağ hatası"}. Yeniden denenecek."
+                mainHandler.post {
+                    completeStationUpload(
+                        currentMediaId,
+                        fingerprint,
+                        false,
+                        message
+                    )
+                }
+            } finally {
+                connection?.disconnect()
+            }
+        }, "station-upload").apply {
+            isDaemon = true
+            start()
+        }
+    }
+
+    private fun completeStationUpload(
+        stationId: String,
+        fingerprint: String,
+        success: Boolean,
+        message: String
+    ) {
+        val preferences = getSharedPreferences(
+            MainActivity.STATION_UPLOAD_PREFERENCES,
+            MODE_PRIVATE
+        )
+        if (success) {
+            removePendingUpload(preferences, stationId)
+            val sent = runCatching {
+                JSONArray(preferences.getString(MainActivity.SENT_STATION_FINGERPRINTS_KEY, "[]"))
+            }.getOrElse { JSONArray() }
+            if ((0 until sent.length()).none { sent.optString(it) == fingerprint }) {
+                sent.put(fingerprint)
+            }
+            preferences.edit()
+                .putString(MainActivity.SENT_STATION_FINGERPRINTS_KEY, sent.toString())
+                .apply()
+        }
+        notificationStatusMessage = message
+        val generation = ++notificationStatusGeneration
+        updateMonitorNotification(mediaSession?.player?.isPlaying == true)
+        MainActivity.dispatchStationUploadStatus(message, !success)
+        mainHandler.postDelayed({
+            if (notificationStatusGeneration == generation) {
+                notificationStatusMessage = null
+                updateMonitorNotification(mediaSession?.player?.isPlaying == true)
+            }
+        }, NOTIFICATION_STATUS_DURATION_MS)
+    }
+
+    private fun removePendingUpload(preferences: android.content.SharedPreferences, stationId: String) {
+        val pending = runCatching {
+            JSONArray(preferences.getString(MainActivity.PENDING_STATION_UPLOADS_KEY, "[]"))
+        }.getOrElse { return }
+        val remaining = JSONArray()
+        (0 until pending.length())
+            .mapNotNull { pending.optJSONObject(it) }
+            .filterNot { it.optString("id") == stationId }
+            .forEach(remaining::put)
+        preferences.edit().putString(MainActivity.PENDING_STATION_UPLOADS_KEY, remaining.toString())
+            .apply()
+    }
+
+    private fun stationFingerprint(name: String, url: String): String =
+        MessageDigest.getInstance("SHA-256")
+            .digest("$name\n$url".toByteArray(Charsets.UTF_8))
+            .joinToString("") { byte -> "%02x".format(byte) }
+
+    private fun isValidIssueUrl(value: String): Boolean {
+        val issueUrl = runCatching { android.net.Uri.parse(value) }.getOrNull() ?: return false
+        return issueUrl.scheme == "https" &&
+            issueUrl.host == "github.com" &&
+            issueUrl.pathSegments.size == 4 &&
+            issueUrl.pathSegments[0] == GITHUB_OWNER &&
+            issueUrl.pathSegments[1] == GITHUB_REPO &&
+            issueUrl.pathSegments[2] == "issues" &&
+            issueUrl.pathSegments[3].toLongOrNull() != null
+    }
+
     private fun updateMonitorNotification(isPlaying: Boolean, startForeground: Boolean = false) {
         val openIntent = Intent(this, MainActivity::class.java).apply {
             action = MainActivity.ACTION_OPEN_FROM_MONITOR
@@ -245,7 +421,7 @@ class PlaybackService : MediaSessionService() {
             openIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-        val message = when {
+        val message = notificationStatusMessage ?: when {
             isPlaying -> getString(R.string.monitor_notification_playing)
             isCharging && getAutomationPreference(AUTO_START_ON_CHARGE, true) ->
                 getString(R.string.monitor_notification_charging)
@@ -332,5 +508,13 @@ class PlaybackService : MediaSessionService() {
         const val STOP_ON_UNPLUG = "stop_on_unplug"
         const val AUTO_PLAY_ON_BLUETOOTH = "auto_play_on_bluetooth"
         const val CHARGE_SCREENSAVER = "charge_screensaver"
+        private const val STATION_SUGGESTION_ENDPOINT =
+            "https://retroradyo-station-suggestions.klasikradyo-ali.workers.dev/submit"
+        private const val GITHUB_OWNER = "atmacali"
+        private const val GITHUB_REPO = "KlasikRadyo"
+        private const val UPLOAD_TIMEOUT_MS = 10_000
+        private const val MAX_RESPONSE_CHARS = 8_192
+        private const val UPLOAD_RETRY_DELAY_MS = 5 * 60 * 1_000L
+        private const val NOTIFICATION_STATUS_DURATION_MS = 15_000L
     }
 }
