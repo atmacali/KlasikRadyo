@@ -4,8 +4,8 @@
     {
       "id": "1",
       "defaultKey": "1",
-      "name": "Radyo Fenomen 100.4 FM",
-      "url": "https://live.radyofenomen.com/fenomen/128/icecast.audio"
+      "name": "Power Türk FM",
+      "url": "https://live.powerapp.com.tr/powerturk/abr/powerturk/128/playlist.m3u8"
     },
     {
       "id": "2",
@@ -29,7 +29,7 @@
       "id": "5",
       "defaultKey": "5",
       "name": "JoyTurk FM 89.0",
-      "url": "https://25493.live.streamtheworld.com:443/JOY_TURKAAC.aac"
+      "url": "https://playerservices.streamtheworld.com/api/livestream-redirect/JOY_TURK_SC?/"
     },
     {
       "id": "6",
@@ -41,7 +41,7 @@
       "id": "7",
       "defaultKey": "7",
       "name": "88.6 Istanbul FM",
-      "url": "http://46.20.4.50:9300"
+      "url": "https://live.radyofenomen.com/istanbulfm/128/playlist.m3u8"
     },
     {
       "id": "8",
