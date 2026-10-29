@@ -1,0 +1,77 @@
+{
+  "version": 1,
+  "stations": [
+    {
+      "id": "1",
+      "defaultKey": "1",
+      "name": "Radyo Fenomen 100.4 FM",
+      "url": "https://live.radyofenomen.com/fenomen/128/icecast.audio"
+    },
+    {
+      "id": "2",
+      "defaultKey": "2",
+      "name": "Süper FM 90.8",
+      "url": "https://25593.live.streamtheworld.com:443/SUPER_FM.mp3"
+    },
+    {
+      "id": "3",
+      "defaultKey": "3",
+      "name": "Radyo 7",
+      "url": "http://46.20.3.251/stream/169/"
+    },
+    {
+      "id": "4",
+      "defaultKey": "4",
+      "name": "Best FM",
+      "url": "http://46.20.7.126/;stream.mp3"
+    },
+    {
+      "id": "5",
+      "defaultKey": "5",
+      "name": "JoyTurk FM 89.0",
+      "url": "https://25493.live.streamtheworld.com:443/JOY_TURKAAC.aac"
+    },
+    {
+      "id": "6",
+      "defaultKey": "6",
+      "name": "Süper FM",
+      "url": "https://25633.live.streamtheworld.com:443/SUPER_FM128AAC.aac"
+    },
+    {
+      "id": "7",
+      "defaultKey": "7",
+      "name": "88.6 Istanbul FM",
+      "url": "http://46.20.4.50:9300"
+    },
+    {
+      "id": "8",
+      "defaultKey": "8",
+      "name": "Pal Nostalji FM 99.2",
+      "url": "http://shoutcast.radyogrup.com:1010/"
+    },
+    {
+      "id": "9",
+      "defaultKey": "9",
+      "name": "SlowTürk",
+      "url": "https://radyo.duhnet.tv/ak_dtvh_slowturk"
+    },
+    {
+      "id": "10",
+      "defaultKey": "10",
+      "name": "Show Radyo",
+      "url": "https://showradyo.radyotvonline.net/showradyoaac"
+    },
+    {
+      "id": "11",
+      "defaultKey": "11",
+      "name": "TRT FM",
+      "url": "https://trt.radyotvonline.net/trtfm"
+    },
+    {
+      "id": "12",
+      "defaultKey": "12",
+      "name": "Power Türk Taptaze",
+      "url": "https://listen.powerapp.com.tr/powerturktaptaze/mpeg/icecast.audio"
+    }
+  ]
+}
