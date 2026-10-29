@@ -1,1 +1,2 @@
 # Submitted radio stations (public; review before adding to stations.json)
+2026-10-29T19:50:39.532Z	Jpy	https://playerservices.streamtheworld.com/api/livestream-redirect/JOY_TURK_SC?/
