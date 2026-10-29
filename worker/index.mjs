@@ -63,7 +63,12 @@ export default {
             console.error("Station submission failed:", error);
             const status = error instanceof GitHubApiError ? error.status : 502;
             return jsonResponse(
-                { ok: false, error: "Could not save submission. Please try again later." },
+                {
+                    ok: false,
+                    error: "Could not save submission. Please try again later.",
+                    githubStatus: error instanceof GitHubApiError ? error.status : null,
+                    version: "file-v1"
+                },
                 status === 429 ? 429 : 502
             );
         }
