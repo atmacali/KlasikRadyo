@@ -337,7 +337,33 @@ class MainActivity : Activity() {
             .apply()
     }
 
+    private fun applyImmersive(enabled: Boolean) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            window.attributes = window.attributes.apply {
+                layoutInDisplayCutoutMode = if (enabled) {
+                    android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+                } else {
+                    android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_DEFAULT
+                }
+            }
+        }
+        androidx.core.view.WindowCompat.setDecorFitsSystemWindows(window, !enabled)
+        val controller = androidx.core.view.WindowCompat.getInsetsController(window, window.decorView)
+        if (enabled) {
+            controller.systemBarsBehavior =
+                androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            controller.hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+        } else {
+            controller.show(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+        }
+    }
+
     inner class WebAppInterface {
+        @JavascriptInterface
+        fun setImmersiveMode(enabled: Boolean) {
+            runOnUiThread { applyImmersive(enabled) }
+        }
+
         @JavascriptInterface
         fun playStream(stationsJson: String, stationId: String) {
             dispatchPlayerAction { controller ->
