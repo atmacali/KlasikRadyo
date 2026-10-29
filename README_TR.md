@@ -17,6 +17,7 @@ Android Studio'da bu klasörü açıp Gradle senkronizasyonunu tamamla. Ardında
 - Örnek istasyonlar
 - Yayın URL'si ile özel istasyon ekleme
 - Her kanalı düzenleme, silme ve varsayılanları geri yükleme
+- Yeni istasyon kaydedilince seçilip doğrudan çalmaya başlar; aktif kanal silinirse çalma durur ve sonraki kanal seçili kalır
 - İstasyon ekleme, durdurma ve varsayılanları geri yükleme komutları **Menü** içinde
 - “AMOLED EKRAN KORUYUCU” düğmesiyle saat, kanal adı ve iki çevirmeli kontrol dışında kalan arayüzü gizleme; çıkmak için kanal adına dokunma
 - Kanal düğmesini 90° çevirince bir önceki/sonraki kanala geçme; her adımda açı sayacını sıfırlama ve dokunmayı tıklamadan ayırma
@@ -58,11 +59,40 @@ Katalogda artık bulunmayan veya kullanıcı tarafından silinmiş katalog kanal
 gerektirir; GitHub'a kataloğu değiştirmek için depo sahibi `stations.json` dosyasını günceller ve GitHub'a gönderir.
 
 Yeni özel istasyon eklerken çıkan onay penceresinde **Tamam** seçilirse, istasyon ilk kez gerçekten
-çalarken adı ve yayın adresi ortak kanala gönderilmek üzere paylaşılır ve GitHub'da bir issue oluşturulur.
-**İptal** seçilirse istasyon yalnızca bu telefonda kalır. API ayarı veya gizli anahtar uygulamada
-bulunmaz; istek HTTPS üzerinden sunucu tarafındaki Worker'a gider. Başarısız gönderim radyo çalmayı
-etkilemez; bildirim/durum alanında hata gösterilir ve istasyon daha sonra yeniden çalındığında tekrar denenir.
-Başarılı gönderimler ve aynı ad+adresin tekrarları cihazda izlenerek yinelenen issue'lar önlenmeye çalışılır.
+çalarken adı ve yayın adresi GitHub deposundaki herkese açık
+[`data/station-submissions.txt`](https://github.com/atmacali/KlasikRadyo/blob/main/data/station-submissions.txt)
+inceleme dosyasına eklenir; bu bir issue açmaz. **İptal** seçilirse istasyon yalnızca bu telefonda kalır.
+Uygulamada API ayarı veya gizli anahtar bulunmaz; istek HTTPS üzerinden Worker'a gider.
+Aynı yayın adresi dosyada varsa tekrar eklenmez. Başarısız gönderim radyo çalmayı etkilemez; durum
+alanında hata gösterilir ve istasyon daha sonra yeniden çalındığında tekrar denenir.
+
+### İstasyon gönderim Worker'ını kurma/güncelleme
+
+Worker kaynak kodu `worker/` klasöründedir. Kullanıcıların gönderdiği adlar ve URL'ler herkese açık
+depo dosyasına yazılır; dosyayı GitHub'dan inceleyip uygun gördüklerinizi `stations.json` içine
+elle ekleyin. Worker GitHub'da otomatik kanal değişikliği yapmaz.
+
+1. GitHub **Settings > Developer settings > Fine-grained personal access tokens** üzerinden yeni token
+   oluşturun. Repository access yalnızca `atmacali/KlasikRadyo`, izin ise **Contents: Read and write**
+   olmalı. Android uygulamasına token koymayın.
+2. Bilgisayarda bu depoyu klonlayın/açın ve terminalde `worker` klasörüne geçin:
+   `cd worker`
+3. Cloudflare hesabına giriş yapın: `npx wrangler@latest login`
+4. Worker secret'ını ayarlayın/güncelleyin:
+   `npx wrangler@latest secret put GITHUB_TOKEN`
+   Komut sorunca yeni fine-grained token'ı terminale yapıştırın; repoya veya sohbete eklemeyin.
+5. Kaynak kodunu aynı Worker'a dağıtın: `npx wrangler@latest deploy`. `wrangler.toml` mevcut
+   `retroradyo-station-suggestions` Worker adını kullanır; dağıtımdan sonra uygulamanın mevcut
+   `/submit` adresi aynı kalmalıdır. `/health` yanıtı `{"ok":true}` olmalı.
+6. GitHub'daki `data/station-submissions.txt` dosyasını kontrol edin. Eski Worker token'ını artık
+   kullanmayın; güvenlik için GitHub'dan iptal edin.
+
+Worker GitHub Contents API ile dosyanın güncel SHA'sını alır ve yeni satırı ekler; eşzamanlı
+değişikliklerde çakışmayı yeniden okuyup sınırlı sayıda dener. Gönderim başına alan doğrulaması,
+istek boyutu sınırı ve Worker belleğiyle saatlik IP limiti uygulanır; bu son limit global/kalıcı
+değil, Cloudflare Worker örneği başına en iyi çaba korumasıdır. Android yalnızca kullanıcı onay
+verdiği ve yeni istasyon gerçekten çalmaya başladığı zaman gönderir; tekrarlayan denemeler aynı URL'yi
+çoğaltmaz.
 
 Uygulama arka plandaysa servis yayın başlatabilir. Şarj ekran koruyucusu ayarı açık olsa bile Android uygulama
 ekranını kendiliğinden açmayabilir; kalıcı bildirime dokununca şarj ekran koruyucusunu açar. Android 10 ve üzeri arka plandan aktivite açılmasını
