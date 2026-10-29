@@ -298,14 +298,15 @@
         .screensaver .knob-value,
         .screensaver .knob-hint { display: none; }
         .screensaver .knob {
-            border-color: #444;
+            border: 1px solid #fff;
             background:
-                radial-gradient(circle at 50% 50%, #000 0 54%, transparent 55%),
-                conic-gradient(from 225deg, #666 0deg, #666 var(--arc, 0deg), #181818 var(--arc, 0deg), #181818 270deg, transparent 270deg),
-                #000;
+                radial-gradient(circle, #000 0 80%, transparent 81%),
+                repeating-conic-gradient(from -1deg, #fff 0 2deg, #000 2deg 15deg);
             box-shadow: none;
         }
-        .screensaver .knob::before { background: #ddd; box-shadow: none; }
+        .screensaver .knob::before { top: 2px; width: 1px; height: 22px; border-radius: 0; background: #fff; box-shadow: none; }
+        .screensaver .clock { font-weight: 200; }
+        .screensaver .now-playing { font-weight: 300; font-size: 13px; color: #fff; }
         .screensaver .app { transform: translate(var(--screensaver-shift-x, 0px), var(--screensaver-shift-y, 0px)); }
         @media (prefers-reduced-motion: reduce) {
             *, *::before, *::after { scroll-behavior: auto !important; transition-duration: 0.01ms !important; }
@@ -406,7 +407,7 @@
             <h2 id="modalTitle">Yeni istasyon ekle</h2>
             <input type="text" id="newTitle" class="input-field" placeholder="İstasyon adı" aria-label="İstasyon adı">
             <input type="url" id="newUrl" class="input-field" placeholder="Yayın adresi (http/https)" aria-label="Yayın adresi">
-            <p id="stationShareNotice">Onay verirseniz yeni istasyonun adı ve yayın adresi, ilk kez çaldığında GitHub deposundaki herkese açık inceleme metin dosyasına eklenir. İptal ederseniz yalnızca bu telefona eklenir.</p>
+            <label id="stationShareNotice"><input type="checkbox" id="shareStationCheckbox" checked> Yeni istasyonun adı ve yayın adresi, ilk kez çaldığında GitHub deposundaki herkese açık inceleme metin dosyasına eklensin. İşareti kaldırırsanız yalnızca bu telefona eklenir.</label>
             <div class="modal-actions">
                 <button class="btn btn-primary" type="button" onclick="saveStation()">Kaydet</button>
                 <button class="btn" type="button" onclick="closeModal()">İptal</button>
@@ -1083,6 +1084,7 @@
             document.getElementById('newUrl').value = station?.url || '';
             document.getElementById('stationShareNotice').hidden =
                 Boolean(station) || !window.AndroidBridge?.registerStationForUpload;
+            document.getElementById('shareStationCheckbox').checked = true;
             document.getElementById('newTitle').setCustomValidity('');
             document.getElementById('newUrl').setCustomValidity('');
             document.getElementById('modal').classList.add('open');
@@ -1135,9 +1137,7 @@
             } else {
                 const id = `custom-${Date.now()}-${Math.random().toString(36).slice(2)}`;
                 const shouldShare = Boolean(window.AndroidBridge?.registerStationForUpload) &&
-                    window.confirm(
-                        'Bu yeni istasyonun adı ve yayın adresi, ilk kez çaldığında GitHub deposundaki herkese açık inceleme metin dosyasına eklenecek. Kabul ediyorsanız Tamam; yalnızca bu telefona eklemek için İptal seçin.'
-                    );
+                    document.getElementById('shareStationCheckbox').checked;
                 stations.push({
                     id,
                     defaultKey: null,

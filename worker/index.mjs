@@ -18,7 +18,7 @@ export default {
             return new Response(null, { status: 204, headers: corsHeaders() });
         }
         if (url.pathname === "/health" && request.method === "GET") {
-            return jsonResponse({ ok: true });
+            return jsonResponse({ ok: true, version: "file-v1", storage: "contents" });
         }
         if (url.pathname !== "/submit") {
             return jsonResponse({ ok: false, error: "Not found." }, 404);
@@ -58,7 +58,7 @@ export default {
 
         try {
             const result = await appendSubmission(station.value, env.GITHUB_TOKEN);
-            return jsonResponse({ ok: true, duplicate: result.duplicate }, 201);
+            return jsonResponse({ ok: true, duplicate: result.duplicate, version: "file-v1" }, 201);
         } catch (error) {
             console.error("Station submission failed:", error);
             const status = error instanceof GitHubApiError ? error.status : 502;
