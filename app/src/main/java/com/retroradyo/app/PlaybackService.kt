@@ -249,6 +249,8 @@ class PlaybackService : MediaSessionService() {
             isPlaying -> getString(R.string.monitor_notification_playing)
             isCharging && getAutomationPreference(AUTO_START_ON_CHARGE, true) ->
                 getString(R.string.monitor_notification_charging)
+            isCharging && getAutomationPreference(CHARGE_SCREENSAVER, false) ->
+                getString(R.string.monitor_notification_screensaver)
             isCharging -> getString(R.string.monitor_notification_charge_disabled)
             else -> getString(R.string.monitor_notification_waiting)
         }
@@ -329,5 +331,6 @@ class PlaybackService : MediaSessionService() {
         const val AUTO_START_ON_CHARGE = "auto_start_on_charge"
         const val STOP_ON_UNPLUG = "stop_on_unplug"
         const val AUTO_PLAY_ON_BLUETOOTH = "auto_play_on_bluetooth"
+        const val CHARGE_SCREENSAVER = "charge_screensaver"
     }
 }

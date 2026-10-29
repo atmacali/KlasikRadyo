@@ -22,6 +22,8 @@ import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.google.common.util.concurrent.ListenableFuture
+import java.net.HttpURLConnection
+import java.net.URL
 
 class MainActivity : Activity() {
 
@@ -61,10 +63,11 @@ class MainActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         wasCharging = isPowerConnected()
-        if (getAutomationPreference(AUTO_START_ON_CHARGE, true) &&
-            (intent?.action == ACTION_POWER_CONNECTED || wasCharging)
+        if ((intent?.action == ACTION_POWER_CONNECTED || wasCharging) &&
+            (getAutomationPreference(AUTO_START_ON_CHARGE, true) ||
+                getAutomationPreference(CHARGE_SCREENSAVER, false))
         ) {
-            pendingPowerAction = RESUME_LAST_STATION_SCRIPT
+            pendingPowerAction = powerConnectedScript()
             window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         }
         ContextCompat.startForegroundService(
@@ -133,13 +136,19 @@ class MainActivity : Activity() {
             ACTION_POWER_CONNECTED -> handlePowerConnected()
             ACTION_POWER_DISCONNECTED -> handlePowerDisconnected()
             ACTION_OPEN_FROM_MONITOR -> {
-                if (isPowerConnected() && getAutomationPreference(AUTO_START_ON_CHARGE, true)) {
+                if (isPowerConnected() && shouldHandleCharging()) {
                     handlePowerConnected()
                 } else {
                     resumeLastStationInWebView()
                 }
             }
-            Intent.ACTION_MAIN -> resumeLastStationInWebView()
+            Intent.ACTION_MAIN -> {
+                if (isPowerConnected() && shouldHandleCharging()) {
+                    handlePowerConnected()
+                } else {
+                    resumeLastStationInWebView()
+                }
+            }
         }
     }
 
@@ -206,7 +215,8 @@ class MainActivity : Activity() {
 
     private fun updateKeepScreenOn() {
         if (!::webView.isInitialized) return
-        if ((wasCharging && getAutomationPreference(AUTO_START_ON_CHARGE, true)) ||
+        if ((wasCharging && (getAutomationPreference(AUTO_START_ON_CHARGE, true) ||
+                    getAutomationPreference(CHARGE_SCREENSAVER, false))) ||
             mediaController?.isPlaying == true
         ) {
             window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
@@ -217,15 +227,21 @@ class MainActivity : Activity() {
 
     private fun handlePowerConnected() {
         wasCharging = true
-        if (!getAutomationPreference(AUTO_START_ON_CHARGE, true)) return
-        window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        pendingPowerAction = RESUME_LAST_STATION_SCRIPT
+        if (!shouldHandleCharging()) return
+        if (getAutomationPreference(AUTO_START_ON_CHARGE, true) ||
+            getAutomationPreference(CHARGE_SCREENSAVER, false)
+        ) {
+            window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        }
+        pendingPowerAction = powerConnectedScript()
         runPendingPowerAction()
     }
 
     private fun handlePowerDisconnected() {
         wasCharging = false
         window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        pendingPowerAction = "toggleScreensaver(false)"
+        runPendingPowerAction()
         if (!getAutomationPreference(STOP_ON_UNPLUG, true)) {
             updateKeepScreenOn()
             return
@@ -239,6 +255,19 @@ class MainActivity : Activity() {
         runPendingPowerAction()
         finish()
     }
+
+    private fun shouldHandleCharging(): Boolean =
+        getAutomationPreference(AUTO_START_ON_CHARGE, true) ||
+            getAutomationPreference(CHARGE_SCREENSAVER, false)
+
+    private fun powerConnectedScript(): String = buildList {
+        if (getAutomationPreference(AUTO_START_ON_CHARGE, true)) {
+            add(RESUME_LAST_STATION_SCRIPT)
+        }
+        if (getAutomationPreference(CHARGE_SCREENSAVER, false)) {
+            add("toggleScreensaver(true)")
+        }
+    }.joinToString(";")
 
     private fun runPendingPowerAction() {
         val script = pendingPowerAction
@@ -272,8 +301,9 @@ class MainActivity : Activity() {
         val autoStart = getAutomationPreference(AUTO_START_ON_CHARGE, true)
         val stopOnUnplug = getAutomationPreference(STOP_ON_UNPLUG, true)
         val bluetoothAutoPlay = isBluetoothAutoPlayEnabled()
+        val chargeScreensaver = getAutomationPreference(CHARGE_SCREENSAVER, false)
         webView.evaluateJavascript(
-            "applyAutomationSettingsFromNative($autoStart,$stopOnUnplug,$bluetoothAutoPlay)",
+            "applyAutomationSettingsFromNative($autoStart,$stopOnUnplug,$bluetoothAutoPlay,$chargeScreensaver)",
             null
         )
     }
@@ -347,6 +377,10 @@ class MainActivity : Activity() {
         fun getBluetoothAutoPlayEnabled(): Boolean = isBluetoothAutoPlayEnabled()
 
         @JavascriptInterface
+        fun getChargeScreensaverEnabled(): Boolean =
+            getAutomationPreference(CHARGE_SCREENSAVER, false)
+
+        @JavascriptInterface
         fun setAutoStartOnChargeEnabled(enabled: Boolean) {
             setAutomationPreference(AUTO_START_ON_CHARGE, enabled)
         }
@@ -354,6 +388,17 @@ class MainActivity : Activity() {
         @JavascriptInterface
         fun setStopOnUnplugEnabled(enabled: Boolean) {
             setAutomationPreference(STOP_ON_UNPLUG, enabled)
+        }
+
+        @JavascriptInterface
+        fun setChargeScreensaverEnabled(enabled: Boolean) {
+            setAutomationPreference(CHARGE_SCREENSAVER, enabled)
+            runOnUiThread {
+                if (wasCharging && ::webView.isInitialized && pageReady) {
+                    webView.evaluateJavascript("toggleScreensaver($enabled)", null)
+                }
+                updateKeepScreenOn()
+            }
         }
 
         @JavascriptInterface
@@ -395,6 +440,7 @@ class MainActivity : Activity() {
             ) {
                 return false
             }
+
             val body = """
                 ### Station name
 
@@ -426,6 +472,114 @@ class MainActivity : Activity() {
                 false
             } catch (e: SecurityException) {
                 false
+            }
+        }
+
+        @JavascriptInterface
+        fun submitStationSuggestion(workerUrl: String, name: String, streamUrl: String) {
+            val workerUri = runCatching { Uri.parse(workerUrl.trim()) }.getOrNull()
+            val stationName = name.trim()
+            val stationUri = runCatching { Uri.parse(streamUrl.trim()) }.getOrNull()
+            if (workerUri == null || workerUri.scheme != "https" || workerUri.host.isNullOrBlank() ||
+                !workerUri.userInfo.isNullOrEmpty() || !workerUri.query.isNullOrEmpty() ||
+                !workerUri.fragment.isNullOrEmpty() || stationName.isBlank() ||
+                stationName.length > 120 || stationName.any { Character.isISOControl(it) } ||
+                stationUri == null ||
+                stationUri.scheme !in setOf("http", "https") ||
+                stationUri.host.isNullOrBlank() || streamUrl.length > 2048 ||
+                streamUrl.any { Character.isISOControl(it) || it.isWhitespace() }
+            ) {
+                reportSuggestionResult(false, "Worker veya istasyon bilgisi geçersiz.", null)
+                return
+            }
+
+            Thread {
+                var connection: HttpURLConnection? = null
+                try {
+                    connection = URL(workerUri.toString()).openConnection() as HttpURLConnection
+                    connection.requestMethod = "POST"
+                    connection.instanceFollowRedirects = false
+                    connection.connectTimeout = 10_000
+                    connection.readTimeout = 10_000
+                    connection.doOutput = true
+                    connection.setRequestProperty("Content-Type", "application/json; charset=utf-8")
+                    val payload = org.json.JSONObject()
+                        .put("stationName", stationName)
+                        .put("streamUrl", streamUrl.trim())
+                        .toString()
+                    connection.outputStream.use { output ->
+                        output.write(payload.toByteArray(Charsets.UTF_8))
+                    }
+                    val statusCode = connection.responseCode
+                    val responseStream = if (statusCode in 200..299) {
+                        connection.inputStream
+                    } else {
+                        connection.errorStream
+                    }
+                    val response = responseStream?.bufferedReader()?.use { it.readText() }.orEmpty()
+                    val result = runCatching { org.json.JSONObject(response) }.getOrNull()
+                    val issueUri = runCatching {
+                        Uri.parse(result?.optString("issueUrl").orEmpty())
+                    }.getOrNull()
+                    val safeIssueUrl = issueUri?.takeIf {
+                        it.scheme == "https" && it.host == "github.com" &&
+                            it.pathSegments.size >= 4 &&
+                            it.pathSegments[0] == "atmacali" &&
+                            it.pathSegments[1] == "KlasikRadyo" &&
+                            it.pathSegments[2] == "issues" &&
+                            it.pathSegments[3].toLongOrNull() != null
+                    }?.toString()
+                    val success = statusCode in 200..299 && result?.optBoolean("ok") == true &&
+                        safeIssueUrl != null
+                    val message = if (success) {
+                        "Öneri GitHub'a gönderildi."
+                    } else {
+                        result?.optString("error")?.takeIf { it.isNotBlank() }
+                            ?: "Worker isteği başarısız oldu (HTTP $statusCode)."
+                    }
+                    reportSuggestionResult(success, message, safeIssueUrl)
+                } catch (error: Exception) {
+                    reportSuggestionResult(
+                        false,
+                        "Worker API'ye bağlanılamadı: ${error.message ?: "ağ hatası"}",
+                        null
+                    )
+                } finally {
+                    connection?.disconnect()
+                }
+            }.start()
+        }
+
+        @JavascriptInterface
+        fun openStationIssue(issueUrl: String): Boolean {
+            val issueUri = runCatching { Uri.parse(issueUrl) }.getOrNull()
+            if (issueUri?.scheme != "https" || issueUri.host != "github.com" ||
+                issueUri.pathSegments.size != 4 ||
+                issueUri.pathSegments[0] != "atmacali" ||
+                issueUri.pathSegments[1] != "KlasikRadyo" ||
+                issueUri.pathSegments[2] != "issues" ||
+                issueUri.pathSegments[3].toLongOrNull() == null
+            ) {
+                return false
+            }
+            return try {
+                startActivity(Intent(Intent.ACTION_VIEW, issueUri))
+                true
+            } catch (e: ActivityNotFoundException) {
+                false
+            } catch (e: SecurityException) {
+                false
+            }
+        }
+
+        private fun reportSuggestionResult(success: Boolean, message: String, issueUrl: String?) {
+            val callback = "setStationSuggestionResult(" +
+                "$success,${org.json.JSONObject.quote(message)}," +
+                "${org.json.JSONObject.quote(issueUrl.orEmpty())})"
+            runOnUiThread {
+                if (::webView.isInitialized && !isDestroyed) {
+                    webView.evaluateJavascript(callback, null)
+                }
             }
         }
 
@@ -565,6 +719,7 @@ class MainActivity : Activity() {
         private const val AUTO_START_ON_CHARGE = "auto_start_on_charge"
         private const val STOP_ON_UNPLUG = "stop_on_unplug"
         private const val AUTO_PLAY_ON_BLUETOOTH = "auto_play_on_bluetooth"
+        private const val CHARGE_SCREENSAVER = "charge_screensaver"
         private const val REQUEST_BLUETOOTH_CONNECT = 102
 
         private val foregroundActivityLock = Any()
