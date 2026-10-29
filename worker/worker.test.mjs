@@ -29,7 +29,7 @@ test("health endpoint responds without GitHub credentials", async () => {
     const worker = await loadWorker();
     const response = await worker.default.fetch(request("/health", { method: "GET" }), {});
     assert.equal(response.status, 200);
-    assert.deepEqual(await response.json(), { ok: true });
+    assert.deepEqual(await response.json(), { ok: true, version: "file-v1", storage: "contents" });
 });
 
 test("submission validates station fields before calling GitHub", async () => {
@@ -68,7 +68,7 @@ test("creates the review file with escaped TSV and reports duplicate URLs withou
             { GITHUB_TOKEN: "test-token" }
         );
         assert.equal(first.status, 201);
-        assert.deepEqual(await first.json(), { ok: true, duplicate: false });
+        assert.deepEqual(await first.json(), { ok: true, duplicate: false, version: "file-v1" });
         assert.match(contents, /Süper\\\\FM\thttps:\/\/radio\.example\/live/);
 
         const duplicate = await worker.default.fetch(
@@ -76,7 +76,7 @@ test("creates the review file with escaped TSV and reports duplicate URLs withou
             { GITHUB_TOKEN: "test-token" }
         );
         assert.equal(duplicate.status, 201);
-        assert.deepEqual(await duplicate.json(), { ok: true, duplicate: true });
+        assert.deepEqual(await duplicate.json(), { ok: true, duplicate: true, version: "file-v1" });
         assert.equal(writes, 1);
     } finally {
         globalThis.fetch = originalFetch;
@@ -143,7 +143,7 @@ test("a concurrent writer's URL is detected after a SHA conflict", async () => {
             { GITHUB_TOKEN: "test-token" }
         );
         assert.equal(response.status, 201);
-        assert.deepEqual(await response.json(), { ok: true, duplicate: true });
+        assert.deepEqual(await response.json(), { ok: true, duplicate: true, version: "file-v1" });
         assert.equal(puts, 1);
         assert.equal(gets, 2);
     } finally {

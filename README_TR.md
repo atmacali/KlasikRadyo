@@ -31,7 +31,7 @@ Android Studio'da bu klasörü açıp Gradle senkronizasyonunu tamamla. Ardında
 - Uygulama ilk açıldığında başlayan, sürekli bildirim göstererek şarj bağlantısını izleyen foreground service
 - Varsayılan olarak şarja takılınca son seçili istasyonu başlatma; fiş çekilince yayını durdurup ekranı kapatma, izleme servisini sürdürme (menüden ayrı ayrı ayarlanabilir)
 - Bluetooth kulaklık/cihaz bağlanınca son seçili radyoyu otomatik çalma (menüden açılır; Android 12+ Bluetooth izni gerekir)
-- Siyah-beyaz arayüz; AMOLED koruyucuda yalnızca saat, istasyon adı ve çok sade iki döner kontrol görünür. Görüntü 45 saniyede bir en fazla 10 piksel kayar.
+- Siyah-beyaz arayüz; AMOLED koruyucuda yalnızca saat, istasyon adı ve ince beyaz tik çizgili (analog saat yüzü gibi) iki döner kontrol görünür. Görüntü 45 saniyede bir en fazla 10 piksel kayar.
 - İlk prototipte uygulama açıkken yayın çalma
 - Reklam/analitik SDK'sı yok
 
@@ -83,7 +83,7 @@ elle ekleyin. Worker GitHub'da otomatik kanal değişikliği yapmaz.
    Komut sorunca yeni fine-grained token'ı terminale yapıştırın; repoya veya sohbete eklemeyin.
 5. Kaynak kodunu aynı Worker'a dağıtın: `npx wrangler@latest deploy`. `wrangler.toml` mevcut
    `retroradyo-station-suggestions` Worker adını kullanır; dağıtımdan sonra uygulamanın mevcut
-   `/submit` adresi aynı kalmalıdır. `/health` yanıtı `{"ok":true}` olmalı.
+   `/submit` adresi aynı kalmalıdır. `/health` yanıtında `"version":"file-v1"` görünmelidir; görünmüyorsa Cloudflare'de hâlâ eski (issue tabanlı) kod çalışıyordur, yeniden deploy edin.
 6. GitHub'daki `data/station-submissions.txt` dosyasını kontrol edin. Eski Worker token'ını artık
    kullanmayın; güvenlik için GitHub'dan iptal edin.
 
