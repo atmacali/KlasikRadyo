@@ -481,7 +481,7 @@ class PlaybackService : MediaSessionService() {
                 NOTIFICATION_NEXT_REQUEST
             ))
             .addAction(notificationAction(
-                android.R.drawable.ic_media_stop,
+                R.drawable.ic_notification_stop,
                 "Durdur",
                 ACTION_NOTIFICATION_STOP,
                 NOTIFICATION_STOP_REQUEST
