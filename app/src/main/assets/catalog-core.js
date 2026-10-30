@@ -121,9 +121,6 @@
         );
         const nextStations = stations.filter(station => {
             if (!isCatalog(station)) return true;
-            if (matchedLocalIds.has(station.id)) return false;
-            archivedById.set(station.id, { ...station, catalogManaged: true });
-            deleted.add(station.id);
             return false;
         });
         let selectedIdRemapped = false;
@@ -169,6 +166,20 @@
             if (hidden) archivedById.delete(hidden.id);
         });
 
+        // Catalog entries no longer published (active or hidden) are removed entirely.
+        const remoteIds = new Set(remoteStations.map(station => station.id));
+        const remoteKeys = new Set(remoteStations.map(station => station.defaultKey));
+        const remoteUrls = new Set(remoteStations.map(station => canonicalUrl(station.url)));
+        [...archivedById.entries()].forEach(([id, station]) => {
+            if (remoteIds.has(id) || remoteKeys.has(station.defaultKey) ||
+                remoteUrls.has(canonicalUrl(station.url))
+            ) return;
+            archivedById.delete(id);
+            deleted.delete(id);
+        });
+        const keptIds = new Set([...nextStations.map(station => station.id), ...archivedById.keys()]);
+        const prunedOrder = order.filter(id => keptIds.has(id));
+
         return {
             stations: nextStations,
             archivedCatalogStations: [...archivedById.values()],
@@ -177,7 +188,7 @@
             })),
             catalogDeletedIds: deleted,
             currentStationId,
-            stationOrder: order,
+            stationOrder: prunedOrder,
             selectedIdRemapped
         };
     }

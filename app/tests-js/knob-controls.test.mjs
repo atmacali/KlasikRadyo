@@ -3,9 +3,8 @@ import assert from "node:assert/strict";
 import controls from "../src/main/assets/knob-controls.js";
 
 class FakeElement {
-    constructor(rect, parentElement = null) {
+    constructor(rect = null) {
         this.rect = rect;
-        this.parentElement = parentElement;
         this.listeners = new Map();
         this.captures = new Set();
     }
@@ -43,56 +42,97 @@ class FakeElement {
     }
 }
 
-function makeKnob(onRotate, toggle, threshold = 18, resetAfterStep = false) {
-    const area = new FakeElement({ left: 90, top: 65, width: 120, height: 170 });
-    const knob = new FakeElement({ left: 100, top: 100, width: 100, height: 100 }, area);
-    controls.setup(knob, onRotate, () => threshold, resetAfterStep, toggle);
-    return { area, knob };
+// Pointer events bubble from the element to the shared root, like in the DOM.
+function fire(root, element, type, properties) {
+    const event = element.dispatch(type, properties);
+    if (element !== root) root.dispatch(type, { ...properties, target: element });
+    return event;
 }
 
-test("dragging near but outside the knob rotates only that knob control", () => {
+function makeKnob(root, rect, onRotate, toggle, threshold = 18, resetAfterStep = false) {
+    const knob = new FakeElement(rect);
+    controls.setup(knob, onRotate, () => threshold, resetAfterStep, toggle, root);
+    return knob;
+}
+
+const left = { left: 100, top: 100, width: 100, height: 100 };
+
+test("ring between 0.5x and 1.5x of the radius rotates only that knob", () => {
+    const root = new FakeElement();
     const steps = [];
     let toggles = 0;
-    const volume = makeKnob(step => steps.push(step), () => toggles++);
-    volume.area.dispatch("pointerdown", { clientX: 150, clientY: 80 });
-    assert.ok(volume.area.captures.has(1));
-    volume.area.dispatch("pointermove", { clientX: 180, clientY: 110 });
-    volume.area.dispatch("pointerup");
+    makeKnob(root, left, step => steps.push(step), () => toggles++);
+    root.dispatch("pointerdown", { clientX: 150, clientY: 80 });
+    root.dispatch("pointermove", { clientX: 180, clientY: 110 });
+    root.dispatch("pointerup");
 
     assert.deepEqual(steps, [2]);
     assert.equal(toggles, 0);
 });
 
-test("clicking the knob still toggles playback and dragging on it suppresses the click", () => {
+test("touches inside 0.5r or outside 1.5r do not rotate", () => {
+    const root = new FakeElement();
+    const steps = [];
+    makeKnob(root, left, step => steps.push(step), () => {});
+    root.dispatch("pointerdown", { clientX: 150, clientY: 130 });
+    root.dispatch("pointermove", { clientX: 130, clientY: 150 });
+    root.dispatch("pointerup");
+    root.dispatch("pointerdown", { clientX: 150, clientY: 70 });
+    root.dispatch("pointermove", { clientX: 230, clientY: 150 });
+    root.dispatch("pointerup");
+
+    assert.deepEqual(steps, []);
+});
+
+test("clicking the knob toggles playback and dragging on it suppresses the click", () => {
+    const root = new FakeElement();
     const steps = [];
     let toggles = 0;
-    const knob = makeKnob(step => steps.push(step), () => toggles++, 90, true).knob;
-    knob.dispatch("click");
-    knob.dispatch("pointerdown", { clientX: 200, clientY: 150 });
-    knob.dispatch("pointermove", { clientX: 150, clientY: 100 });
-    knob.dispatch("pointerup");
-    const dragClick = knob.dispatch("click");
+    const knob = makeKnob(root, left, step => steps.push(step), () => toggles++, 90, true);
+    fire(root, knob, "click");
+    fire(root, knob, "pointerdown", { clientX: 200, clientY: 150 });
+    fire(root, knob, "pointermove", { clientX: 150, clientY: 100 });
+    fire(root, knob, "pointerup");
+    const dragClick = fire(root, knob, "click");
+    fire(root, knob, "click");
 
-    assert.equal(toggles, 1);
+    assert.equal(toggles, 2);
     assert.equal(dragClick.defaultPrevented, true);
     assert.deepEqual(steps, [-1]);
 });
 
-test("knob interactions do not overlap and keyboard rotation remains available", () => {
+test("a ring drag does not leave a stale click suppression", () => {
+    const root = new FakeElement();
+    let toggles = 0;
+    const knob = makeKnob(root, left, () => {}, () => toggles++);
+    root.dispatch("pointerdown", { clientX: 150, clientY: 80 });
+    root.dispatch("pointermove", { clientX: 180, clientY: 110 });
+    root.dispatch("pointerup");
+    fire(root, knob, "click");
+    assert.equal(toggles, 1);
+});
+
+test("overlapping zones pick the nearest knob and lock it for the drag", () => {
+    const root = new FakeElement();
     const leftSteps = [];
     const rightSteps = [];
-    const left = makeKnob(step => leftSteps.push(step), () => {});
-    const right = makeKnob(step => rightSteps.push(step), () => {});
-    right.area.dispatch("pointerdown", { clientX: 150, clientY: 80 });
-    right.area.dispatch("pointermove", { clientX: 180, clientY: 110 });
-    right.area.dispatch("pointerup");
+    makeKnob(root, left, step => leftSteps.push(step), () => {});
+    makeKnob(root, { left: 160, top: 100, width: 100, height: 100 }, step => rightSteps.push(step), () => {});
+    root.dispatch("pointerdown", { clientX: 175, clientY: 100 });
+    root.dispatch("pointermove", { clientX: 215, clientY: 100 });
+    root.dispatch("pointermove", { clientX: 235, clientY: 130 });
+    root.dispatch("pointerup");
 
-    const keyEvent = {
-        key: "ArrowUp",
-        preventDefault() { this.defaultPrevented = true; }
-    };
-    left.knob.listeners.get("keydown")[0](keyEvent);
-    assert.deepEqual(leftSteps, [1]);
-    assert.deepEqual(rightSteps, [2]);
+    assert.ok(leftSteps.length > 0);
+    assert.deepEqual(rightSteps, []);
+});
+
+test("keyboard rotation remains available", () => {
+    const root = new FakeElement();
+    const steps = [];
+    const knob = makeKnob(root, left, step => steps.push(step), () => {});
+    const keyEvent = { key: "ArrowUp", preventDefault() { this.defaultPrevented = true; } };
+    knob.listeners.get("keydown")[0](keyEvent);
+    assert.deepEqual(steps, [1]);
     assert.equal(keyEvent.defaultPrevented, true);
 });
