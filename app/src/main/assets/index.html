@@ -411,12 +411,16 @@
             <summary>MENÜ · AYARLAR</summary>
             <div class="settings-options">
                 <label class="setting-row" for="chargeStartSetting">
-                    <span>Şarja takılınca radyoyu başlat</span>
+                    <span>Sharja takılınca radyoyu başlat</span>
                     <input id="chargeStartSetting" type="checkbox">
                 </label>
                 <label class="setting-row" for="unplugStopSetting">
                     <span>Şarjdan çıkarınca durdur ve ekranı kapat</span>
                     <input id="unplugStopSetting" type="checkbox">
+                </label>
+                <label class="setting-row" for="unplugStopOnlySetting">
+                    <span>Şarjdan çıkarınca sadece durdur (ekran kalsın)</span>
+                    <input id="unplugStopOnlySetting" type="checkbox">
                 </label>
                 <label class="setting-row" for="bluetoothPlaySetting">
                     <span>Bluetooth bağlanınca son radyoyu çal</span>
@@ -1153,12 +1157,14 @@
             updateDisplay();
         }
 
-        function applyAutomationSettingsFromNative(autoStartOnCharge, stopOnUnplug, bluetoothAutoPlay, chargeScreensaver, keepScreenOnAlways) {
+        function applyAutomationSettingsFromNative(autoStartOnCharge, stopOnUnplug, bluetoothAutoPlay, chargeScreensaver, keepScreenOnAlways, stopOnlyOnUnplug) {
             document.getElementById('chargeStartSetting').checked = Boolean(autoStartOnCharge);
             document.getElementById('unplugStopSetting').checked = Boolean(stopOnUnplug);
             document.getElementById('bluetoothPlaySetting').checked = Boolean(bluetoothAutoPlay);
             document.getElementById('chargeScreensaverSetting').checked = Boolean(chargeScreensaver);
             document.getElementById('keepScreenOnAlwaysSetting').checked = Boolean(keepScreenOnAlways);
+            const stopOnlyEl = document.getElementById('unplugStopOnlySetting');
+            if (stopOnlyEl) stopOnlyEl.checked = Boolean(stopOnlyOnUnplug);
         }
 
         function setupAutomationSettings() {
@@ -1169,14 +1175,35 @@
                 bridge.getStopOnUnplugEnabled(),
                 bridge.getBluetoothAutoPlayEnabled(),
                 bridge.getChargeScreensaverEnabled(),
-                (typeof bridge.getKeepScreenOnAlwaysEnabled === 'function') ? bridge.getKeepScreenOnAlwaysEnabled() : false
+                (typeof bridge.getKeepScreenOnAlwaysEnabled === 'function') ? bridge.getKeepScreenOnAlwaysEnabled() : false,
+                (typeof bridge.getStopOnlyOnUnplugEnabled === 'function') ? bridge.getStopOnlyOnUnplugEnabled() : false
             );
+            
+            const unplugStopSetting = document.getElementById('unplugStopSetting');
+            const unplugStopOnlySetting = document.getElementById('unplugStopOnlySetting');
+
             document.getElementById('chargeStartSetting').addEventListener('change', event => {
                 bridge.setAutoStartOnChargeEnabled(event.target.checked);
             });
-            document.getElementById('unplugStopSetting').addEventListener('change', event => {
+            
+            unplugStopSetting.addEventListener('change', event => {
                 bridge.setStopOnUnplugEnabled(event.target.checked);
+                if (event.target.checked && unplugStopOnlySetting.checked) {
+                    unplugStopOnlySetting.checked = false;
+                    if (bridge.setStopOnlyOnUnplugEnabled) bridge.setStopOnlyOnUnplugEnabled(false);
+                }
             });
+
+            if (unplugStopOnlySetting) {
+                unplugStopOnlySetting.addEventListener('change', event => {
+                    if (bridge.setStopOnlyOnUnplugEnabled) bridge.setStopOnlyOnUnplugEnabled(event.target.checked);
+                    if (event.target.checked && unplugStopSetting.checked) {
+                        unplugStopSetting.checked = false;
+                        bridge.setStopOnUnplugEnabled(false);
+                    }
+                });
+            }
+
             document.getElementById('bluetoothPlaySetting').addEventListener('change', event => {
                 const applied = bridge.setBluetoothAutoPlayEnabled(event.target.checked);
                 if (!applied) {
