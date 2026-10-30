@@ -215,7 +215,8 @@ class MainActivity : Activity() {
 
     private fun updateKeepScreenOn() {
         if (!::webView.isInitialized) return
-        if ((wasCharging && (getAutomationPreference(AUTO_START_ON_CHARGE, true) ||
+        val keepAlways = getAutomationPreference(KEEP_SCREEN_ON_ALWAYS, false)
+        if (keepAlways || (wasCharging && (getAutomationPreference(AUTO_START_ON_CHARGE, true) ||
                     getAutomationPreference(CHARGE_SCREENSAVER, false))) ||
             mediaController?.isPlaying == true
         ) {
@@ -239,7 +240,7 @@ class MainActivity : Activity() {
 
     private fun handlePowerDisconnected() {
         wasCharging = false
-        window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        updateKeepScreenOn()
         pendingPowerAction = "toggleScreensaver(false)"
         runPendingPowerAction()
         if (!getAutomationPreference(STOP_ON_UNPLUG, true)) {
@@ -362,6 +363,16 @@ class MainActivity : Activity() {
         @JavascriptInterface
         fun setImmersiveMode(enabled: Boolean) {
             runOnUiThread { applyImmersive(enabled) }
+        }
+
+        @JavascriptInterface
+        fun getKeepScreenOnAlwaysEnabled(): Boolean =
+            getAutomationPreference(KEEP_SCREEN_ON_ALWAYS, false)
+
+        @JavascriptInterface
+        fun setKeepScreenOnAlwaysEnabled(enabled: Boolean) {
+            setAutomationPreference(KEEP_SCREEN_ON_ALWAYS, enabled)
+            runOnUiThread { updateKeepScreenOn() }
         }
 
         @JavascriptInterface
@@ -650,6 +661,7 @@ class MainActivity : Activity() {
         private const val AUTO_PLAY_ON_BLUETOOTH = "auto_play_on_bluetooth"
         private const val CHARGE_SCREENSAVER = "charge_screensaver"
         private const val REQUEST_BLUETOOTH_CONNECT = 102
+        private const val KEEP_SCREEN_ON_ALWAYS = "keep_screen_on_always"
 
         private val foregroundActivityLock = Any()
         @Volatile
