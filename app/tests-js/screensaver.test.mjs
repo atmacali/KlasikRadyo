@@ -5,19 +5,13 @@ import { resolve } from "node:path";
 
 const html = await readFile(resolve(import.meta.dirname, "../src/main/assets/index.html"), "utf8");
 
-test("AMOLED knob ticks are 10 degrees on and 10 degrees off in both rings", () => {
-    const patterns = [...html.matchAll(/repeating-conic-gradient\(from -?\d+deg, #fff 0deg (\d+)deg, #000 \1deg (\d+)deg\)/g)];
-    assert.equal(patterns.length, 2);
-    for (const [, on, period] of patterns) assert.equal(Number(period) - Number(on), 10);
-    assert.ok(patterns.every(([, on]) => on === "10"));
+test("AMOLED knob is one thin tick ring: 2deg lines on a 20deg period (18 ticks)", () => {
+    const patterns = [...html.matchAll(/repeating-conic-gradient\(from -?\d+deg, #fff 0deg (\d+)deg, transparent \1deg (\d+)deg\)/g)];
+    assert.equal(patterns.length, 1);
+    assert.ok(Number(patterns[0][1]) <= 2);
+    assert.equal(Number(patterns[0][2]), 20);
+    assert.match(html, /\.screensaver \.knob::after \{[^}]*mask-image: radial-gradient\(circle closest-side/);
 });
-
-test("ring masks use closest-side so ticks are not covered by the black fill", () => {
-    const masks = [...html.matchAll(/radial-gradient\(circle( closest-side)?, #000 0 (?:90|76)%/g)];
-    assert.equal(masks.length, 2);
-    assert.ok(masks.every(m => m[1]));
-});
-
 test("screensaver exits only via the station name; no empty-space exit or hint", () => {
     assert.doesNotMatch(html, /\.knob-group::after/);
     assert.doesNotMatch(html, /screensaverTap|screensaver-hint|Boş alana/);
