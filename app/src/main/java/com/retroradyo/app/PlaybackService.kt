@@ -63,6 +63,7 @@ class PlaybackService : MediaSessionService() {
             if (mediaSession?.player?.isPlaying == true) {
                 submitCurrentStationIfPending()
             }
+            updateMonitorNotification(mediaSession?.player?.isPlaying == true)
         }
 
         override fun onIsPlayingChanged(isPlaying: Boolean) {
@@ -123,8 +124,27 @@ class PlaybackService : MediaSessionService() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         super.onStartCommand(intent, flags, startId)
-        if (intent?.action == MainActivity.ACTION_REFRESH_AUTOMATION_RECEIVERS) {
-            refreshBluetoothReceiver()
+        when (intent?.action) {
+            ACTION_NOTIFICATION_TOGGLE -> mediaSession?.player?.let { player ->
+                if (player.isPlaying) {
+                    player.pause()
+                } else if (player.mediaItemCount > 0) {
+                    if (player.playbackState == Player.STATE_IDLE) player.prepare()
+                    player.play()
+                }
+                updateMonitorNotification(player.isPlaying)
+            }
+            ACTION_NOTIFICATION_STOP -> mediaSession?.player?.let { player ->
+                player.stop()
+                updateMonitorNotification(isPlaying = false)
+            }
+            ACTION_NOTIFICATION_PREVIOUS -> mediaSession?.player?.let { player ->
+                if (player.mediaItemCount > 1) player.seekToPreviousMediaItem()
+            }
+            ACTION_NOTIFICATION_NEXT -> mediaSession?.player?.let { player ->
+                if (player.mediaItemCount > 1) player.seekToNextMediaItem()
+            }
+            MainActivity.ACTION_REFRESH_AUTOMATION_RECEIVERS -> refreshBluetoothReceiver()
         }
         return START_STICKY
     }
@@ -426,9 +446,14 @@ class PlaybackService : MediaSessionService() {
             isCharging -> getString(R.string.monitor_notification_charge_disabled)
             else -> getString(R.string.monitor_notification_waiting)
         }
-        val notification: Notification = NotificationCompat.Builder(this, MONITOR_CHANNEL_ID)
+        val player = mediaSession?.player
+        val notificationBuilder = NotificationCompat.Builder(this, MONITOR_CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_lock_idle_charging)
-            .setContentTitle(getString(R.string.monitor_notification_title))
+            .setContentTitle(
+                player?.currentMediaItem?.mediaMetadata?.title?.toString()
+                    ?.takeIf { it.isNotBlank() }
+                    ?: getString(R.string.monitor_notification_title)
+            )
             .setContentText(message)
             .setContentIntent(openPendingIntent)
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
@@ -437,7 +462,36 @@ class PlaybackService : MediaSessionService() {
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
-            .build()
+            .addAction(notificationAction(
+                android.R.drawable.ic_media_previous,
+                "Önceki kanal",
+                ACTION_NOTIFICATION_PREVIOUS,
+                NOTIFICATION_PREVIOUS_REQUEST
+            ))
+            .addAction(notificationAction(
+                if (isPlaying) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play,
+                if (isPlaying) "Duraklat" else "Oynat",
+                ACTION_NOTIFICATION_TOGGLE,
+                NOTIFICATION_TOGGLE_REQUEST
+            ))
+            .addAction(notificationAction(
+                android.R.drawable.ic_media_next,
+                "Sonraki kanal",
+                ACTION_NOTIFICATION_NEXT,
+                NOTIFICATION_NEXT_REQUEST
+            ))
+            .addAction(notificationAction(
+                android.R.drawable.ic_media_stop,
+                "Durdur",
+                ACTION_NOTIFICATION_STOP,
+                NOTIFICATION_STOP_REQUEST
+            ))
+            .setStyle(
+                androidx.media.app.NotificationCompat.MediaStyle()
+                    .setMediaSession(mediaSession?.sessionCompatToken)
+                    .setShowActionsInCompactView(0, 1, 2)
+            )
+        val notification: Notification = notificationBuilder.build()
 
         if (startForeground) {
             ServiceCompat.startForeground(
@@ -454,6 +508,22 @@ class PlaybackService : MediaSessionService() {
                 e.printStackTrace()
             }
         }
+    }
+
+    private fun notificationAction(
+        icon: Int,
+        label: String,
+        action: String,
+        requestCode: Int
+    ): NotificationCompat.Action {
+        val intent = Intent(this, PlaybackService::class.java).setAction(action)
+        val pendingIntent = PendingIntent.getService(
+            this,
+            requestCode,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        return NotificationCompat.Action.Builder(icon, label, pendingIntent).build()
     }
 
     private fun foregroundServiceTypes(isPlaying: Boolean): Int {
@@ -499,6 +569,14 @@ class PlaybackService : MediaSessionService() {
         const val DEFAULT_VOLUME = 0.7f
         const val MONITOR_CHANNEL_ID = "charging_monitor"
         const val MONITOR_NOTIFICATION_ID = 2001
+        const val ACTION_NOTIFICATION_PREVIOUS = "com.retroradyo.action.NOTIFICATION_PREVIOUS"
+        const val ACTION_NOTIFICATION_TOGGLE = "com.retroradyo.action.NOTIFICATION_TOGGLE"
+        const val ACTION_NOTIFICATION_NEXT = "com.retroradyo.action.NOTIFICATION_NEXT"
+        const val ACTION_NOTIFICATION_STOP = "com.retroradyo.action.NOTIFICATION_STOP"
+        const val NOTIFICATION_PREVIOUS_REQUEST = 2011
+        const val NOTIFICATION_TOGGLE_REQUEST = 2012
+        const val NOTIFICATION_NEXT_REQUEST = 2013
+        const val NOTIFICATION_STOP_REQUEST = 2014
         const val AUTOMATION_PREFERENCES = "radio_automation"
         const val AUTO_START_ON_CHARGE = "auto_start_on_charge"
         const val STOP_ON_UNPLUG = "stop_on_unplug"

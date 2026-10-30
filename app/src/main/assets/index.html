@@ -58,7 +58,7 @@
             gap: clamp(18px, 7vw, 36px);
             margin: 0 auto 28px;
         }
-        .knob-group { min-width: 0; text-align: center; }
+        .knob-group { min-width: 0; text-align: center; touch-action: none; }
         .knob-label {
             display: block;
             margin-bottom: 12px;
@@ -301,12 +301,16 @@
             border: 2px dashed #fff;
             background:
                 radial-gradient(circle, #000 0 80%, transparent 81%),
-                repeating-conic-gradient(from -1deg, #fff 0 2deg, #000 2deg 15deg);
+                repeating-conic-gradient(from 0deg, #fff 0deg 10deg, #000 10deg 20deg);
             box-shadow: none;
         }
         .screensaver .knob::before { top: 2px; width: 1px; height: 22px; border-radius: 0; background: #fff; box-shadow: none; }
-        .screensaver .clock { font-weight: 200; }
-        .screensaver .now-playing { font-weight: 300; font-size: 13px; color: #fff; }
+        .screensaver .clock { font-size: clamp(32px, 10vh, 48px); font-weight: 200; }
+        .screensaver .now-playing {
+            font-weight: 300;
+            font-size: clamp(16px, 5vh, 24px);
+            color: #fff;
+        }
         .screensaver .app { transform: translate(var(--screensaver-shift-x, 0px), var(--screensaver-shift-y, 0px)); }
         @media (prefers-reduced-motion: reduce) {
             *, *::before, *::after { scroll-behavior: auto !important; transition-duration: 0.01ms !important; }
@@ -330,7 +334,20 @@
             .knob { --knob-size: clamp(176px, 49vh, 230px); --knob-pivot: clamp(70px, 19vh, 91px); }
             .knob-label { margin-bottom: 8px; }
             .gesture-hint { margin-top: 8px; }
-            .screensaver .app { min-height: calc(100dvh - max(24px, env(safe-area-inset-top)) - max(24px, env(safe-area-inset-bottom))); }
+            .screensaver .app {
+                display: grid;
+                width: 100%;
+                min-height: calc(100dvh - max(24px, env(safe-area-inset-top)) - max(24px, env(safe-area-inset-bottom)));
+                grid-template-columns: minmax(0, 1fr) minmax(180px, 260px) minmax(0, 1fr);
+                align-items: center;
+            }
+            .screensaver .header { grid-column: 2; grid-row: 1; margin: 0; }
+            .screensaver .knobs { display: contents; }
+            .screensaver .knob-group:first-child { grid-column: 1; grid-row: 1; }
+            .screensaver .knob-group:last-child { grid-column: 3; grid-row: 1; }
+            .screensaver .clock { margin-top: 0; font-size: clamp(28px, 8vh, 36px); }
+            .screensaver .now-playing { font-size: clamp(14px, 4vh, 18px); }
+            .screensaver .knob { --knob-size: clamp(100px, 30vh, 180px); }
         }
     </style>
 </head>
@@ -417,7 +434,7 @@
     <div class="modal" id="restoreModal" role="dialog" aria-modal="true" aria-labelledby="restoreTitle">
         <div class="modal-content">
             <h2 id="restoreTitle">Varsayılan kanalları geri yükle</h2>
-            <p>12 varsayılan kanal yeniden eklenecek ve düzenlenen varsayılanlar başlangıç bilgilerine dönecek. Özel kanallarınız ve favorileriniz korunacak.</p>
+            <p>14 varsayılan kanal yeniden eklenecek ve düzenlenen varsayılanlar başlangıç bilgilerine dönecek. Özel kanallarınız ve favorileriniz korunacak.</p>
             <div class="modal-actions">
                 <button class="btn btn-primary" type="button" onclick="restoreDefaults()">Geri yükle</button>
                 <button class="btn" type="button" onclick="closeRestoreModal()">İptal</button>
@@ -425,30 +442,46 @@
         </div>
     </div>
 
+    <script src="catalog-core.js"></script>
+    <script src="knob-controls.js"></script>
     <script>
         const stationListVersionKey = 'retro_stations_version';
-        const stationListVersion = '3';
+        const stationListVersion = '4';
         const catalogUrl = 'https://raw.githubusercontent.com/atmacali/KlasikRadyo/main/stations.json';
         const catalogBaselineKey = 'retro_catalog_baseline';
         const catalogDeletedKey = 'retro_catalog_deleted';
         const catalogArchivedKey = 'retro_catalog_archived';
         const stationOrderKey = 'retro_station_order';
         const defaultStations = [
-            { id: '1', defaultKey: '1', name: 'Radyo Fenomen 100.4 FM', url: 'https://live.radyofenomen.com/fenomen/128/icecast.audio', fav: false },
-            { id: '2', defaultKey: '2', name: 'Süper FM 90.8', url: 'https://25593.live.streamtheworld.com:443/SUPER_FM.mp3', fav: false },
+            { id: '13', defaultKey: '13', name: 'Power Türk FM', url: 'https://live.powerapp.com.tr/powerturk/abr/powerturk/128/playlist.m3u8', fav: false },
+            { id: '14', defaultKey: '14', name: 'Alem FM', url: 'https://alemfm.radyotvonline.net/alemfmaac?/;stream.mp3', fav: false },
             { id: '3', defaultKey: '3', name: 'Radyo 7', url: 'http://46.20.3.251/stream/169/', fav: false },
             { id: '4', defaultKey: '4', name: 'Best FM', url: 'http://46.20.7.126/;stream.mp3', fav: false },
-            { id: '5', defaultKey: '5', name: 'JoyTurk FM 89.0', url: 'https://25493.live.streamtheworld.com:443/JOY_TURKAAC.aac', fav: false },
-            { id: '6', defaultKey: '6', name: 'Süper FM', url: 'https://25633.live.streamtheworld.com:443/SUPER_FM128AAC.aac', fav: false },
-            { id: '7', defaultKey: '7', name: '88.6 Istanbul FM', url: 'http://46.20.4.50:9300', fav: false },
+            { id: '5', defaultKey: '5', name: 'JoyTurk FM 89.0', url: 'https://playerservices.streamtheworld.com/api/livestream-redirect/JOY_TURK_SC?/', fav: false },
+            { id: '2', defaultKey: '2', name: 'Süper FM 90.8', url: 'https://25633.live.streamtheworld.com:443/SUPER_FM128AAC.aac', fav: false },
+            { id: '7', defaultKey: '7', name: '88.6 Istanbul FM', url: 'https://live.radyofenomen.com/istanbulfm/128/playlist.m3u8', fav: false },
             { id: '8', defaultKey: '8', name: 'Pal Nostalji FM 99.2', url: 'http://shoutcast.radyogrup.com:1010/', fav: false },
             { id: '9', defaultKey: '9', name: 'SlowTürk', url: 'https://radyo.duhnet.tv/ak_dtvh_slowturk', fav: false },
             { id: '10', defaultKey: '10', name: 'Show Radyo', url: 'https://showradyo.radyotvonline.net/showradyoaac', fav: false },
             { id: '11', defaultKey: '11', name: 'TRT FM', url: 'https://trt.radyotvonline.net/trtfm', fav: false },
-            { id: '12', defaultKey: '12', name: 'Power Türk Taptaze', url: 'https://listen.powerapp.com.tr/powerturktaptaze/mpeg/icecast.audio', fav: false }
+            { id: '12', defaultKey: '12', name: 'Power Türk Taptaze', url: 'https://listen.powerapp.com.tr/powerturktaptaze/mpeg/icecast.audio', fav: false },
+            { id: '15', defaultKey: '15', name: 'Kafa Radyo', url: 'https://moondigitalmaster.radyotvonline.net/kafaradyo/playlist.m3u8', fav: false },
+            { id: '16', defaultKey: '16', name: 'Radyo D 104.0', url: 'https://radyo.duhnet.tv/radyod', fav: false }
         ];
 
         const previousDefaultStations = [
+            { id: '1', name: 'Radyo Fenomen 100.4 FM', url: 'https://live.radyofenomen.com/fenomen/128/icecast.audio' },
+            { id: '2', name: 'Süper FM 90.8', url: 'https://25593.live.streamtheworld.com:443/SUPER_FM.mp3' },
+            { id: '3', name: 'Radyo 7', url: 'http://46.20.3.251/stream/169/' },
+            { id: '4', name: 'Best FM', url: 'http://46.20.7.126/;stream.mp3' },
+            { id: '5', name: 'JoyTurk FM 89.0', url: 'https://25493.live.streamtheworld.com:443/JOY_TURKAAC.aac' },
+            { id: '6', name: 'Süper FM', url: 'https://25633.live.streamtheworld.com:443/SUPER_FM128AAC.aac' },
+            { id: '7', name: '88.6 Istanbul FM', url: 'http://46.20.4.50:9300' },
+            { id: '8', name: 'Pal Nostalji FM 99.2', url: 'http://shoutcast.radyogrup.com:1010/' },
+            { id: '9', name: 'SlowTürk', url: 'https://radyo.duhnet.tv/ak_dtvh_slowturk' },
+            { id: '10', name: 'Show Radyo', url: 'https://showradyo.radyotvonline.net/showradyoaac' },
+            { id: '11', name: 'TRT FM', url: 'https://trt.radyotvonline.net/trtfm' },
+            { id: '12', name: 'Power Türk Taptaze', url: 'https://listen.powerapp.com.tr/powerturktaptaze/mpeg/icecast.audio' },
             { id: '1', name: 'TRT FM', url: 'https://listen.radyotvonline.com/trt_fm/stream' },
             { id: '2', name: 'Kral FM', url: 'https://listen.radyotvonline.com/kralfm/stream' },
             { id: '3', name: 'Joy FM', url: 'https://listen.powerapp.com.tr/joyfm/mpeg/icecast.audio' },
@@ -474,6 +507,9 @@
             return exactDefault ? exactDefault.defaultKey : null;
         }
 
+        let migratedArchivedCatalogStations = [];
+        let migratedDeletedCatalogIds = [];
+
         function loadStations() {
             try {
                 const rawSaved = localStorage.getItem('retro_stations');
@@ -495,10 +531,24 @@
                     const defaultKey = defaultKeyForStation(station);
                     const previousDefault = previousDefaults.get(`${station.id}\u0000${station.url}`);
                     if (defaultKey) {
-                        migratedDefaults.set(defaultKey, station);
+                        if (!migratedDefaults.has(defaultKey)) migratedDefaults.set(defaultKey, station);
                     } else if (previousDefault) {
-                        const matchingDefault = defaultStations.find(item => item.name === previousDefault.name);
-                        if (matchingDefault) migratedDefaults.set(matchingDefault.defaultKey, station);
+                        const matchingDefault = defaultStations.find(item =>
+                            item.name === previousDefault.name ||
+                            RadioCatalog.canonicalUrl(item.url) === RadioCatalog.canonicalUrl(previousDefault.url)
+                        );
+                        if (matchingDefault) {
+                            if (!migratedDefaults.has(matchingDefault.defaultKey)) {
+                                migratedDefaults.set(matchingDefault.defaultKey, station);
+                            }
+                        } else {
+                            migratedArchivedCatalogStations.push({
+                                ...station,
+                                catalogManaged: true,
+                                defaultKey: station.defaultKey || `catalog:${station.id}`
+                            });
+                            migratedDeletedCatalogIds.push(station.id);
+                        }
                     } else {
                         retainedStations.push(station);
                     }
@@ -525,8 +575,14 @@
         let screensaverActive = false;
         let screensaverShiftIndex = 0;
         let reorderStationsMode = localStorage.getItem('retro_reorder_mode') === 'true';
-        let archivedCatalogStations = loadLocalJson(catalogArchivedKey, []);
-        let catalogDeletedIds = new Set(loadLocalJson(catalogDeletedKey, []));
+        let archivedCatalogStations = [
+            ...loadLocalJson(catalogArchivedKey, []),
+            ...migratedArchivedCatalogStations
+        ];
+        let catalogDeletedIds = new Set([
+            ...loadLocalJson(catalogDeletedKey, []),
+            ...migratedDeletedCatalogIds
+        ]);
         let catalogBaseline = loadLocalJson(catalogBaselineKey, []);
 
         function loadLocalJson(key, fallback) {
@@ -549,6 +605,7 @@
                 return false;
             }
         }
+        if (migratedArchivedCatalogStations.length) persistCatalogState();
 
         function loadSelectedStationId() {
             try {
@@ -803,193 +860,30 @@
         }
 
         function validateCatalog(payload) {
-            if (!payload || payload.version !== 1 || !Array.isArray(payload.stations) ||
-                payload.stations.length === 0 || payload.stations.length > 500
-            ) {
-                throw new Error('GitHub kanal listesi biçimi tanınmıyor.');
-            }
-            const seenIds = new Set();
-            return payload.stations.map((station, index) => {
-                const id = typeof station?.id === 'string' ? station.id.trim() : '';
-                const name = typeof station?.name === 'string' ? station.name.trim() : '';
-                const url = typeof station?.url === 'string' ? station.url.trim() : '';
-                let parsedUrl;
-                try {
-                    parsedUrl = new URL(url);
-                } catch {
-                    throw new Error(`GitHub kanal listesindeki ${index + 1}. yayın adresi geçersiz.`);
-                }
-                if (!id || !name || !['https:', 'http:'].includes(parsedUrl.protocol) ||
-                    !parsedUrl.hostname || seenIds.has(id)
-                ) {
-                    throw new Error(`GitHub kanal listesindeki ${index + 1}. kanal geçersiz veya yinelenmiş.`);
-                }
-                seenIds.add(id);
-                return {
-                    id,
-                    defaultKey: typeof station.defaultKey === 'string'
-                        ? station.defaultKey
-                        : `catalog:${id}`,
-                    catalogManaged: true,
-                    name,
-                    url,
-                    fav: false
-                };
-            });
+            return RadioCatalog.validate(payload);
         }
 
         function mergeCatalogStations(remoteStations) {
-            const oldBaselineById = new Map(catalogBaseline.map(station => [station.id, station]));
-            const localById = new Map(stations.map(station => [station.id, station]));
-            const archivedById = new Map(archivedCatalogStations.map(station => [station.id, station]));
-            const knownIds = new Set([
-                ...oldBaselineById.keys(),
-                ...defaultStations.map(station => station.id)
-            ]);
-            archivedById.forEach((station, id) => catalogDeletedIds.add(id));
-
-            const customCollision = remoteStations.find(station => {
-                const local = localById.get(station.id);
-                return local && !isCatalogStation(local);
+            const next = RadioCatalog.reconcile({
+                remoteStations,
+                defaultStations,
+                stations,
+                catalogBaseline,
+                archivedCatalogStations,
+                catalogDeletedIds,
+                currentStationId,
+                stationOrder
             });
-            if (customCollision) {
-                throw new Error(`“${customCollision.name}” kanal kimliği özel bir kanal ile çakışıyor; hiçbir değişiklik uygulanmadı.`);
-            }
-            const duplicateRemote = remoteStations.find((station, index) =>
-                remoteStations.some((other, otherIndex) =>
-                    otherIndex < index && (
-                        other.id === station.id ||
-                        (station.defaultKey && other.defaultKey === station.defaultKey)
-                    )
-                )
-            );
-            if (duplicateRemote) {
-                throw new Error(`GitHub kanal listesinde “${duplicateRemote.name}” için yinelenen kanal kimliği veya adresi var.`);
-            }
-            knownIds.forEach(id => {
-                const known = oldBaselineById.get(id) ||
-                    defaultStations.find(station => station.id === id);
-                const hasIdentityMatch = known && (
-                    [...stations, ...archivedById.values()].some(station =>
-                        isCatalogStation(station) &&
-                        ((known.defaultKey && station.defaultKey === known.defaultKey) ||
-                            canonicalStationUrl(station.url) === canonicalStationUrl(known.url))
-                    )
-                );
-                if (!localById.has(id) && !archivedById.has(id) && !hasIdentityMatch) {
-                    catalogDeletedIds.add(id);
-                }
-            });
-            const matchedLocalByRemoteId = new Map();
-            const matchedLocalIds = new Set();
-            remoteStations.forEach(remote => {
-                const urlKey = canonicalStationUrl(remote.url);
-                const local = stations.find(station => {
-                    if (!isCatalogStation(station) || matchedLocalIds.has(station.id)) return false;
-                    if (station.id === remote.id) return true;
-                    if (remote.defaultKey && station.defaultKey === remote.defaultKey) return true;
-                    const baseline = oldBaselineById.get(station.id) ||
-                        defaultStations.find(item => item.id === station.id);
-                    return canonicalStationUrl(station.url) === urlKey ||
-                        (baseline && canonicalStationUrl(baseline.url) === urlKey);
-                });
-                if (local) {
-                    matchedLocalByRemoteId.set(remote.id, local);
-                    matchedLocalIds.add(local.id);
-                }
-            });
-            const remappedIds = new Map(
-                [...matchedLocalByRemoteId.entries()]
-                    .filter(([remoteId, local]) => remoteId !== local.id)
-                    .map(([remoteId, local]) => [local.id, remoteId])
-            );
-            const nextStations = stations.filter(station => {
-                if (!isCatalogStation(station)) return true;
-                if (matchedLocalIds.has(station.id)) return false;
-                archivedById.set(station.id, { ...station, catalogManaged: true });
-                catalogDeletedIds.add(station.id);
-                return false;
-            });
-            let selectedIdRemapped = false;
-            remappedIds.forEach((remoteId, localId) => {
-                if (catalogDeletedIds.delete(localId)) catalogDeletedIds.add(remoteId);
-                if (currentStationId === localId) {
-                    currentStationId = remoteId;
-                    selectedIdRemapped = true;
-                }
-                stationOrder = stationOrder.map(id => id === localId ? remoteId : id);
-                const archived = archivedById.get(localId);
-                if (archived) {
-                    archivedById.delete(localId);
-                    archivedById.set(remoteId, { ...archived, id: remoteId });
-                }
-            });
-            if (selectedIdRemapped) saveSelectedStationId();
-
-            remoteStations.forEach(remote => {
-                const local = matchedLocalByRemoteId.get(remote.id);
-                const archived = archivedById.get(remote.id) ||
-                    archivedCatalogStations.find(station =>
-                        (remote.defaultKey && station.defaultKey === remote.defaultKey) ||
-                        canonicalStationUrl(station.url) === canonicalStationUrl(remote.url)
-                    );
-                const old = oldBaselineById.get(remote.id) ||
-                    defaultStations.find(station => station.id === remote.id) ||
-                    (local && oldBaselineById.get(local.id));
-                const wasDeleted = catalogDeletedIds.has(remote.id) ||
-                    Boolean(local && catalogDeletedIds.has(local.id)) ||
-                    Boolean(archived && catalogDeletedIds.has(archived.id));
-                if (wasDeleted) {
-                    const deletedEntry = mergeCatalogEntry(remote, archived || local, old);
-                    archivedById.set(remote.id, deletedEntry);
-                    catalogDeletedIds.add(remote.id);
-                    return;
-                }
-                nextStations.push(mergeCatalogEntry(remote, local, old));
-                archivedById.delete(remote.id);
-                if (archived) archivedById.delete(archived.id);
-            });
-
-            stations = nextStations;
-            archivedCatalogStations = [...archivedById.values()];
-            catalogBaseline = remoteStations.map(({ id, name, url, defaultKey }) => ({
-                id,
-                name,
-                url,
-                defaultKey
-            }));
+            stations = next.stations;
+            archivedCatalogStations = next.archivedCatalogStations;
+            catalogBaseline = next.catalogBaseline;
+            catalogDeletedIds = next.catalogDeletedIds;
+            currentStationId = next.currentStationId;
+            stationOrder = next.stationOrder;
+            if (next.selectedIdRemapped) saveSelectedStationId();
             if (!persistCatalogState()) throw new Error('Kanal listesi cihaza kaydedilemedi.');
             saveAndRender();
             return remoteStations.length;
-        }
-
-        function canonicalStationUrl(value) {
-            try {
-                return new URL(value).href;
-            } catch {
-                return value;
-            }
-        }
-
-        function mergeCatalogEntry(remote, local, old) {
-            const nameOverride = local
-                ? (typeof local.nameOverride === 'boolean'
-                    ? local.nameOverride
-                    : Boolean(old && local.name !== old.name))
-                : false;
-            const urlOverride = local
-                ? (typeof local.urlOverride === 'boolean'
-                    ? local.urlOverride
-                    : Boolean(old && local.url !== old.url))
-                : false;
-            return {
-                ...remote,
-                fav: Boolean(local?.fav || archivedCatalogStations.find(item => item.id === remote.id)?.fav),
-                nameOverride,
-                urlOverride,
-                name: nameOverride ? local.name : remote.name,
-                url: urlOverride ? local.url : remote.url
-            };
         }
 
         async function fetchStationCatalog() {
@@ -999,7 +893,13 @@
             try {
                 const response = await fetch(catalogUrl, { cache: 'no-store' });
                 if (!response.ok) throw new Error(`GitHub isteği başarısız oldu (${response.status}).`);
-                const remoteStations = validateCatalog(await response.json());
+                let payload;
+                try {
+                    payload = await response.json();
+                } catch {
+                    throw new Error('GitHub kanal listesi JSON olarak okunamadı. Mevcut liste korundu; düzelttikten sonra tekrar deneyin.');
+                }
+                const remoteStations = validateCatalog(payload);
                 const count = mergeCatalogStations(remoteStations);
                 setCatalogStatus(`${count} katalog kanalı eşitlendi. Gizlenenler aşağıdaki “Gizli kanallar” bölümünde.`);
             } catch (error) {
@@ -1278,90 +1178,7 @@
         }
 
         function setupKnob(element, onRotate, getThreshold = () => 18, resetAfterStep = false) {
-            let lastAngle = null;
-            let accumulated = 0;
-            let gestureMoved = false;
-            let suppressClick = false;
-
-            element.addEventListener('pointerdown', event => {
-                if (event.button !== 0 && event.pointerType !== 'touch') return;
-                const bounds = element.getBoundingClientRect();
-                const centerX = bounds.left + bounds.width / 2;
-                const centerY = bounds.top + bounds.height / 2;
-                if (Math.hypot(event.clientX - centerX, event.clientY - centerY) < bounds.width * 0.18) {
-                    lastAngle = null;
-                    accumulated = 0;
-                    gestureMoved = false;
-                    element.setPointerCapture(event.pointerId);
-                    return;
-                }
-                lastAngle = Math.atan2(
-                    event.clientY - centerY,
-                    event.clientX - centerX
-                ) * 180 / Math.PI;
-                accumulated = 0;
-                gestureMoved = false;
-                element.setPointerCapture(event.pointerId);
-            });
-            element.addEventListener('pointermove', event => {
-                if (lastAngle === null) return;
-                const bounds = element.getBoundingClientRect();
-                const centerX = bounds.left + bounds.width / 2;
-                const centerY = bounds.top + bounds.height / 2;
-                if (Math.hypot(event.clientX - centerX, event.clientY - centerY) < bounds.width * 0.18) {
-                    lastAngle = null;
-                    return;
-                }
-                const angle = Math.atan2(
-                    event.clientY - centerY,
-                    event.clientX - centerX
-                ) * 180 / Math.PI;
-                if (lastAngle === null) {
-                    lastAngle = angle;
-                    return;
-                }
-                const delta = ((angle - lastAngle + 540) % 360) - 180;
-                lastAngle = angle;
-                if (Math.abs(delta) < 2) return;
-                if (Math.abs(delta) >= 3) gestureMoved = true;
-                accumulated += delta;
-                const threshold = getThreshold();
-                if (resetAfterStep && Math.abs(accumulated) >= threshold) {
-                    onRotate(Math.sign(accumulated));
-                    accumulated = 0;
-                } else {
-                    const steps = Math.trunc(accumulated / threshold);
-                    if (steps) {
-                        accumulated -= steps * threshold;
-                        onRotate(steps);
-                    }
-                }
-            });
-            const endDrag = event => {
-                suppressClick = event.type === 'pointerup' && gestureMoved;
-                lastAngle = null;
-                accumulated = 0;
-                gestureMoved = false;
-            };
-            element.addEventListener('pointerup', endDrag);
-            element.addEventListener('pointercancel', endDrag);
-            element.addEventListener('click', event => {
-                if (suppressClick) {
-                    event.preventDefault();
-                    suppressClick = false;
-                    return;
-                }
-                togglePlayPause();
-            });
-            element.addEventListener('keydown', event => {
-                if (event.key === 'ArrowUp' || event.key === 'ArrowRight') {
-                    event.preventDefault();
-                    onRotate(1);
-                } else if (event.key === 'ArrowDown' || event.key === 'ArrowLeft') {
-                    event.preventDefault();
-                    onRotate(-1);
-                }
-            });
+            RadioKnobControls.setup(element, onRotate, getThreshold, resetAfterStep, togglePlayPause);
         }
 
         document.getElementById('nowPlaying').addEventListener('click', () => {
