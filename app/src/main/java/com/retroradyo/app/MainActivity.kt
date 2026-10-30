@@ -303,8 +303,11 @@ class MainActivity : Activity() {
         val stopOnUnplug = getAutomationPreference(STOP_ON_UNPLUG, true)
         val bluetoothAutoPlay = isBluetoothAutoPlayEnabled()
         val chargeScreensaver = getAutomationPreference(CHARGE_SCREENSAVER, false)
+        val keepScreenOnAlways = getAutomationPreference(KEEP_SCREEN_ON_ALWAYS, false) // Yeni ayarı okuyoruz
+        
+        // 5. parametreyi de JavaScript'e gönderiyoruz
         webView.evaluateJavascript(
-            "applyAutomationSettingsFromNative($autoStart,$stopOnUnplug,$bluetoothAutoPlay,$chargeScreensaver)",
+            "applyAutomationSettingsFromNative($autoStart,$stopOnUnplug,$bluetoothAutoPlay,$chargeScreensaver,$keepScreenOnAlways)",
             null
         )
     }
