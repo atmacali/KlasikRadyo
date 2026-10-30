@@ -426,15 +426,25 @@ class PlaybackService : MediaSessionService() {
             .digest("$name\n$url".toByteArray(Charsets.UTF_8))
             .joinToString("") { byte -> "%02x".format(byte) }
 
-    private fun getAppIconBitmap(): android.graphics.Bitmap? {
-        val drawable = ContextCompat.getDrawable(this, R.mipmap.ic_launcher) ?: return null
-        if (drawable is android.graphics.drawable.BitmapDrawable) return drawable.bitmap
-        val width = drawable.intrinsicWidth.coerceAtLeast(128)
-        val height = drawable.intrinsicHeight.coerceAtLeast(128)
-        val bitmap = android.graphics.Bitmap.createBitmap(width, height, android.graphics.Bitmap.Config.ARGB_8888)
+    private fun getPlaceholderAlbumArt(): android.graphics.Bitmap? {
+        val drawable = ContextCompat.getDrawable(this, R.drawable.ic_stat_icon) ?: return null
+        val size = 256
+        val bitmap = android.graphics.Bitmap.createBitmap(size, size, android.graphics.Bitmap.Config.ARGB_8888)
         val canvas = android.graphics.Canvas(bitmap)
-        drawable.setBounds(0, 0, canvas.width, canvas.height)
+        
+        // Siyah kapsülle uyumlu olması için koyu gri arka plan (#1a1a1a) çiziyoruz
+        val paint = android.graphics.Paint().apply {
+            color = android.graphics.Color.parseColor("#1a1a1a")
+            style = android.graphics.Paint.Style.FILL
+        }
+        canvas.drawRect(0f, 0f, size.toFloat(), size.toFloat(), paint)
+        
+        // Beyaz ikonu ortaya yerleştiriyoruz
+        val iconSize = 144
+        val offset = (size - iconSize) / 2
+        drawable.setBounds(offset, offset, offset + iconSize, offset + iconSize)
         drawable.draw(canvas)
+        
         return bitmap
     }
 
@@ -461,7 +471,7 @@ class PlaybackService : MediaSessionService() {
         val player = mediaSession?.player
         val notificationBuilder = NotificationCompat.Builder(this, MONITOR_CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_icon)
-            .setLargeIcon(getAppIconBitmap())
+            .setLargeIcon(getPlaceholderAlbumArt())
             .setContentTitle(
                 player?.currentMediaItem?.mediaMetadata?.title?.toString()
                     ?.takeIf { it.isNotBlank() }
