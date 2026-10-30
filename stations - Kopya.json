@@ -1,0 +1,89 @@
+{
+  "version": 1,
+  "stations": [
+    {
+      "id": "1",
+      "defaultKey": "1",
+      "name": "Power Türk FM",
+      "url": "https://live.powerapp.com.tr/powerturk/abr/powerturk/128/playlist.m3u8"
+    },
+    {
+      "id": "2",
+      "defaultKey": "2",
+      "name": "Alem FM",
+      "url": "https://alemfm.radyotvonline.net/alemfmaac?/;stream.mp3"
+    },
+    {
+      "id": "3",
+      "defaultKey": "3",
+      "name": "Radyo 7",
+      "url": "http://46.20.3.251/stream/169/"
+    },
+    {
+      "id": "4",
+      "defaultKey": "4",
+      "name": "Best FM",
+      "url": "http://46.20.7.126/;stream.mp3"
+    },
+    {
+      "id": "5",
+      "defaultKey": "5",
+      "name": "JoyTurk FM 89.0",
+      "url": "https://playerservices.streamtheworld.com/api/livestream-redirect/JOY_TURK_SC?/"
+    },
+    {
+      "id": "6",
+      "defaultKey": "6",
+      "name": "Süper FM 90.8",
+      "url": "https://25633.live.streamtheworld.com:443/SUPER_FM128AAC.aac"
+    },
+    {
+      "id": "7",
+      "defaultKey": "7",
+      "name": "88.6 Istanbul FM",
+      "url": "https://live.radyofenomen.com/istanbulfm/128/playlist.m3u8"
+    },
+    {
+      "id": "8",
+      "defaultKey": "8",
+      "name": "Pal Nostalji FM 99.2",
+      "url": "http://shoutcast.radyogrup.com:1010/"
+    },
+    {
+      "id": "9",
+      "defaultKey": "9",
+      "name": "SlowTürk",
+      "url": "https://radyo.duhnet.tv/ak_dtvh_slowturk"
+    },
+    {
+      "id": "10",
+      "defaultKey": "10",
+      "name": "Show Radyo",
+      "url": "https://showradyo.radyotvonline.net/showradyoaac"
+    },
+    {
+      "id": "11",
+      "defaultKey": "11",
+      "name": "TRT FM",
+      "url": "https://trt.radyotvonline.net/trtfm"
+    },
+    {
+      "id": "12",
+      "defaultKey": "12",
+      "name": "Power Türk Taptaze",
+      "url": "https://listen.powerapp.com.tr/powerturktaptaze/mpeg/icecast.audio"
+    },
+        {
+      "id": "13",
+      "defaultKey": "13",
+      "name": "Kafa Radyo",
+      "url": "https://moondigitalmaster.radyotvonline.net/kafaradyo/playlist.m3u8"
+    },
+        {
+      "id": "14",
+      "defaultKey": "14",
+      "name": "Radyo D 104.0",
+      "url": "https://radyo.duhnet.tv/radyod"
+    }
+  ]
+}

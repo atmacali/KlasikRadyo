@@ -2,14 +2,14 @@
   "version": 1,
   "stations": [
     {
-      "id": "13",
-      "defaultKey": "13",
+      "id": "1",
+      "defaultKey": "1",
       "name": "Power Türk FM",
       "url": "https://live.powerapp.com.tr/powerturk/abr/powerturk/128/playlist.m3u8"
     },
     {
-      "id": "14",
-      "defaultKey": "14",
+      "id": "2",
+      "defaultKey": "2",
       "name": "Alem FM",
       "url": "https://alemfm.radyotvonline.net/alemfmaac?/;stream.mp3"
     },
@@ -32,8 +32,8 @@
       "url": "https://playerservices.streamtheworld.com/api/livestream-redirect/JOY_TURK_SC?/"
     },
     {
-      "id": "2",
-      "defaultKey": "2",
+      "id": "6",
+      "defaultKey": "6",
       "name": "Süper FM 90.8",
       "url": "https://25633.live.streamtheworld.com:443/SUPER_FM128AAC.aac"
     },
@@ -73,15 +73,15 @@
       "name": "Power Türk Taptaze",
       "url": "https://listen.powerapp.com.tr/powerturktaptaze/mpeg/icecast.audio"
     },
-    {
-      "id": "15",
-      "defaultKey": "15",
+        {
+      "id": "13",
+      "defaultKey": "13",
       "name": "Kafa Radyo",
       "url": "https://moondigitalmaster.radyotvonline.net/kafaradyo/playlist.m3u8"
     },
-    {
-      "id": "16",
-      "defaultKey": "16",
+        {
+      "id": "14",
+      "defaultKey": "14",
       "name": "Radyo D 104.0",
       "url": "https://radyo.duhnet.tv/radyod"
     }
