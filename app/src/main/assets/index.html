@@ -430,6 +430,10 @@
                     <span>Kanal sırasını düzenle</span>
                     <input id="reorderStationsSetting" type="checkbox">
                 </label>
+                <label class="setting-row" for="keepScreenOnAlwaysSetting">
+                    <span>Radyo çalışırken AMOLED ekranını daima açık tut</span>
+                    <input id="keepScreenOnAlwaysSetting" type="checkbox">
+                </label>
             </div>
             <div class="catalog-actions">
                 <button class="btn btn-primary" type="button" onclick="openModal()">＋ İSTASYON EKLE</button>
@@ -1149,11 +1153,12 @@
             updateDisplay();
         }
 
-        function applyAutomationSettingsFromNative(autoStartOnCharge, stopOnUnplug, bluetoothAutoPlay, chargeScreensaver) {
+        function applyAutomationSettingsFromNative(autoStartOnCharge, stopOnUnplug, bluetoothAutoPlay, chargeScreensaver, keepScreenOnAlways) {
             document.getElementById('chargeStartSetting').checked = Boolean(autoStartOnCharge);
             document.getElementById('unplugStopSetting').checked = Boolean(stopOnUnplug);
             document.getElementById('bluetoothPlaySetting').checked = Boolean(bluetoothAutoPlay);
             document.getElementById('chargeScreensaverSetting').checked = Boolean(chargeScreensaver);
+            document.getElementById('keepScreenOnAlwaysSetting').checked = Boolean(keepScreenOnAlways);
         }
 
         function setupAutomationSettings() {
@@ -1163,7 +1168,8 @@
                 bridge.getAutoStartOnChargeEnabled(),
                 bridge.getStopOnUnplugEnabled(),
                 bridge.getBluetoothAutoPlayEnabled(),
-                bridge.getChargeScreensaverEnabled()
+                bridge.getChargeScreensaverEnabled(),
+                (typeof bridge.getKeepScreenOnAlwaysEnabled === 'function') ? bridge.getKeepScreenOnAlwaysEnabled() : false
             );
             document.getElementById('chargeStartSetting').addEventListener('change', event => {
                 bridge.setAutoStartOnChargeEnabled(event.target.checked);
@@ -1179,6 +1185,11 @@
             });
             document.getElementById('chargeScreensaverSetting').addEventListener('change', event => {
                 bridge.setChargeScreensaverEnabled(event.target.checked);
+            });
+            document.getElementById('keepScreenOnAlwaysSetting').addEventListener('change', event => {
+                if (typeof bridge.setKeepScreenOnAlwaysEnabled === 'function') {
+                    bridge.setKeepScreenOnAlwaysEnabled(event.target.checked);
+                }
             });
             const reorderSetting = document.getElementById('reorderStationsSetting');
             reorderSetting.checked = reorderStationsMode;
