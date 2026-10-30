@@ -78,18 +78,12 @@
       "defaultKey": "13",
       "name": "Kafa Radyo",
       "url": "https://moondigitalmaster.radyotvonline.net/kafaradyo/playlist.m3u8"
-    },
+    }
         {
       "id": "14",
       "defaultKey": "14",
       "name": "Radyo D 104.0",
       "url": "https://radyo.duhnet.tv/radyod"
-    },
-        {
-      "id": "15",
-      "defaultKey": "15",
-      "name": "Radyo Deneme",
-      "url": "https://radyo.duhnet.tv/radyodenem"
     }
   ]
 }
