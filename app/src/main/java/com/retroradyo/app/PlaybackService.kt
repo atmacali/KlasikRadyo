@@ -174,13 +174,13 @@ class PlaybackService : MediaSessionService() {
     }
 
     internal fun stopForPowerDisconnection() {
-        if (getAutomationPreference(STOP_ON_UNPLUG, true)) {
+        if (getAutomationPreference(STOP_ON_UNPLUG, true) || getAutomationPreference(STOP_ONLY_ON_UNPLUG, false)) {
             mediaSession?.player?.stop()
         }
     }
 
     internal fun shouldStopOnPowerDisconnection(): Boolean =
-        getAutomationPreference(STOP_ON_UNPLUG, true)
+        getAutomationPreference(STOP_ON_UNPLUG, true) || getAutomationPreference(STOP_ONLY_ON_UNPLUG, false)
 
     internal fun onPowerConnected() {
         isCharging = true
@@ -432,14 +432,12 @@ class PlaybackService : MediaSessionService() {
         val bitmap = android.graphics.Bitmap.createBitmap(size, size, android.graphics.Bitmap.Config.ARGB_8888)
         val canvas = android.graphics.Canvas(bitmap)
         
-        // Siyah kapsülle uyumlu olması için koyu gri arka plan (#1a1a1a) çiziyoruz
         val paint = android.graphics.Paint().apply {
             color = android.graphics.Color.parseColor("#1a1a1a")
             style = android.graphics.Paint.Style.FILL
         }
         canvas.drawRect(0f, 0f, size.toFloat(), size.toFloat(), paint)
         
-        // Beyaz ikonu ortaya yerleştiriyoruz
         val iconSize = 144
         val offset = (size - iconSize) / 2
         drawable.setBounds(offset, offset, offset + iconSize, offset + iconSize)
@@ -605,6 +603,7 @@ class PlaybackService : MediaSessionService() {
         const val STOP_ON_UNPLUG = "stop_on_unplug"
         const val AUTO_PLAY_ON_BLUETOOTH = "auto_play_on_bluetooth"
         const val CHARGE_SCREENSAVER = "charge_screensaver"
+        const val STOP_ONLY_ON_UNPLUG = "stop_only_on_unplug"
         private const val STATION_SUGGESTION_ENDPOINT =
             "https://retroradyo-station-suggestions.klasikradyo-ali.workers.dev/submit"
         private const val UPLOAD_TIMEOUT_MS = 10_000
