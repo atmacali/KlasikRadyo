@@ -426,6 +426,18 @@ class PlaybackService : MediaSessionService() {
             .digest("$name\n$url".toByteArray(Charsets.UTF_8))
             .joinToString("") { byte -> "%02x".format(byte) }
 
+    private fun getAppIconBitmap(): android.graphics.Bitmap? {
+        val drawable = ContextCompat.getDrawable(this, R.mipmap.ic_launcher) ?: return null
+        if (drawable is android.graphics.drawable.BitmapDrawable) return drawable.bitmap
+        val width = drawable.intrinsicWidth.coerceAtLeast(128)
+        val height = drawable.intrinsicHeight.coerceAtLeast(128)
+        val bitmap = android.graphics.Bitmap.createBitmap(width, height, android.graphics.Bitmap.Config.ARGB_8888)
+        val canvas = android.graphics.Canvas(bitmap)
+        drawable.setBounds(0, 0, canvas.width, canvas.height)
+        drawable.draw(canvas)
+        return bitmap
+    }
+
     private fun updateMonitorNotification(isPlaying: Boolean, startForeground: Boolean = false) {
         val openIntent = Intent(this, MainActivity::class.java).apply {
             action = MainActivity.ACTION_OPEN_FROM_MONITOR
@@ -449,7 +461,7 @@ class PlaybackService : MediaSessionService() {
         val player = mediaSession?.player
         val notificationBuilder = NotificationCompat.Builder(this, MONITOR_CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_icon)
-			.setLargeIcon(android.graphics.BitmapFactory.decodeResource(resources, R.mipmap.ic_launcher))
+            .setLargeIcon(getAppIconBitmap())
             .setContentTitle(
                 player?.currentMediaItem?.mediaMetadata?.title?.toString()
                     ?.takeIf { it.isNotBlank() }
