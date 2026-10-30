@@ -310,21 +310,24 @@
             position: absolute;
             inset: 0;
             border-radius: 50%;
-            background: repeating-conic-gradient(from -1deg, #fff 0deg 2deg, transparent 2deg 20deg);
-            -webkit-mask-image: radial-gradient(circle closest-side, transparent 0 80%, #000 81% 95%, transparent 96%);
-            mask-image: radial-gradient(circle closest-side, transparent 0 80%, #000 81% 95%, transparent 96%);
+            background: repeating-conic-gradient(from -5deg, #fff 0deg 10deg, transparent 10deg 20deg);
+            -webkit-mask-image: radial-gradient(circle closest-side, transparent 0 calc(100% - 2px), #000 calc(100% - 2px) 100%);
+            mask-image: radial-gradient(circle closest-side, transparent 0 calc(100% - 2px), #000 calc(100% - 2px) 100%);
             content: "";
             pointer-events: none;
         }        .screensaver .knob::before {
             z-index: 1;
-            top: calc(var(--knob-size) * 0.2);
-            width: 1px;
-            height: calc(var(--knob-size) * 0.16);
+            top: 0;
+            left: 50%;
+            width: 2px;
+            height: 50%;
+            margin-left: -1px;
             border-radius: 0;
-            background: #fff;
+            background: linear-gradient(to bottom, transparent 0 14%, #fff 14%);
             box-shadow: none;
-        }
-        .screensaver .clock { font-size: clamp(32px, 10vh, 48px); font-weight: 200; }
+            transform: rotate(var(--rotation));
+            transform-origin: 50% 100%;
+        }        .screensaver .clock { font-size: clamp(32px, 10vh, 48px); font-weight: 200; }
         .screensaver .now-playing {
             font-weight: 300;
             font-size: clamp(16px, 5vh, 24px);

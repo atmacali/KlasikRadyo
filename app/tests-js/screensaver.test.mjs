@@ -5,12 +5,11 @@ import { resolve } from "node:path";
 
 const html = await readFile(resolve(import.meta.dirname, "../src/main/assets/index.html"), "utf8");
 
-test("AMOLED knob is one thin tick ring: 2deg lines on a 20deg period (18 ticks)", () => {
-    const patterns = [...html.matchAll(/repeating-conic-gradient\(from -?\d+deg, #fff 0deg (\d+)deg, transparent \1deg (\d+)deg\)/g)];
-    assert.equal(patterns.length, 1);
-    assert.ok(Number(patterns[0][1]) <= 2);
-    assert.equal(Number(patterns[0][2]), 20);
-    assert.match(html, /\.screensaver \.knob::after \{[^}]*mask-image: radial-gradient\(circle closest-side/);
+test("AMOLED knob is one thin dashed circle: 10deg on / 10deg off, 2px stroke, needle pivots at center", () => {
+    assert.equal([...html.matchAll(/repeating-conic-gradient\(/g)].length, 1);
+    assert.match(html, /repeating-conic-gradient\(from -5deg, #fff 0deg 10deg, transparent 10deg 20deg\)/);
+    assert.match(html, /\.screensaver \.knob::after \{[^}]*mask-image: radial-gradient\(circle closest-side, transparent 0 calc\(100% - 2px\)/);
+    assert.match(html, /\.screensaver \.knob::before \{[^}]*height: 50%;[^}]*transform-origin: 50% 100%/);
 });
 test("screensaver exits only via the station name; no empty-space exit or hint", () => {
     assert.doesNotMatch(html, /\.knob-group::after/);
