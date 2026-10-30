@@ -58,14 +58,8 @@
             gap: clamp(18px, 7vw, 36px);
             margin: 0 auto 28px;
         }
-        .knob-group { position: relative; min-width: 0; text-align: center; touch-action: none; }
-        .knob-group::after {
-            position: absolute;
-            inset: -55% -50%;
-            z-index: 0;
-            content: "";
-            touch-action: none;
-        }
+        .knob-group { position: relative; min-width: 0; text-align: center; }
+        .screensaver .knob-group { touch-action: none; }
         .knob-label {
             display: block;
             margin-bottom: 12px;
@@ -309,19 +303,31 @@
             --knob-pivot: calc(var(--knob-size) * 0.38);
             border: 0;
             background:
-                radial-gradient(circle, #000 0 95%, transparent 96%),
-                repeating-conic-gradient(from -3deg, #fff 0deg 6deg, #000 6deg 30deg);
+                radial-gradient(circle, #000 0 90%, transparent 90.5%),
+                repeating-conic-gradient(from -5deg, #fff 0deg 10deg, #000 10deg 20deg);
             box-shadow: none;
             outline-color: #fff;
         }
         .screensaver .knob::after {
             position: absolute;
-            inset: 8%;
+            inset: 14%;
             border-radius: 50%;
             background:
-                radial-gradient(circle, #000 0 84%, transparent 85%),
-                repeating-conic-gradient(from -5deg, #fff 0deg 10deg, #000 10deg 30deg);
+                radial-gradient(circle, #000 0 76%, transparent 76.5%),
+                repeating-conic-gradient(from -5deg, #fff 0deg 10deg, #000 10deg 20deg);
             content: "";
+            pointer-events: none;
+        }
+        .screensaver-hint { display: none; }
+        .screensaver .screensaver-hint {
+            position: absolute;
+            right: 0;
+            bottom: 0;
+            left: 0;
+            display: block;
+            color: #666;
+            font-size: 11px;
+            text-align: center;
             pointer-events: none;
         }
         .screensaver .knob::before {
@@ -360,7 +366,7 @@
                 gap: clamp(72px, 17vw, 220px);
                 margin-bottom: 20px;
             }
-            .knob { --knob-size: clamp(176px, 49vh, 230px); --knob-pivot: clamp(70px, 19vh, 91px); }
+            .knob { --knob-size: clamp(120px, 40vh, 190px); --knob-pivot: calc(var(--knob-size) * 0.4); }
             .knob-label { margin-bottom: 8px; }
             .gesture-hint { margin-top: 8px; }
             .screensaver .app {
@@ -407,6 +413,7 @@
             </div>
         </section>
 
+        <div class="screensaver-hint">Boş alana dokun: çık</div>
         <button class="btn screensaver-toggle" id="screensaverToggle" type="button" onclick="toggleScreensaver(true)">AMOLED EKRAN KORUYUCU</button>
         <h1 class="section-title">İSTASYONLAR</h1>
         <div class="station-list" id="stationList"></div>
@@ -1213,6 +1220,26 @@
 
         document.getElementById('nowPlaying').addEventListener('click', () => {
             if (screensaverActive) toggleScreensaver(false);
+        });
+        // Tapping empty space (outside every knob's 1.5R zone) leaves the screensaver.
+        let screensaverTap = null;
+        document.addEventListener('pointerdown', event => {
+            if (!screensaverActive) return;
+            const inKnobZone = ['volumeKnob', 'stationKnob'].some(id => {
+                const bounds = document.getElementById(id).getBoundingClientRect();
+                const radius = bounds.width / 2;
+                return Math.hypot(
+                    event.clientX - (bounds.left + radius),
+                    event.clientY - (bounds.top + bounds.height / 2)
+                ) <= radius * RadioKnobControls.OUTER_RATIO;
+            });
+            screensaverTap = inKnobZone ? null : { x: event.clientX, y: event.clientY, id: event.pointerId };
+        });
+        document.addEventListener('pointerup', event => {
+            const tap = screensaverTap;
+            screensaverTap = null;
+            if (!tap || !screensaverActive || tap.id !== event.pointerId) return;
+            if (Math.hypot(event.clientX - tap.x, event.clientY - tap.y) < 12) toggleScreensaver(false);
         });
         document.getElementById('nowPlaying').addEventListener('keydown', event => {
             if (screensaverActive && (event.key === 'Enter' || event.key === ' ')) {

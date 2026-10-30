@@ -136,3 +136,14 @@ test("keyboard rotation remains available", () => {
     assert.deepEqual(steps, [1]);
     assert.equal(keyEvent.defaultPrevented, true);
 });
+
+test("a button inside the knob zone is not hijacked by ring dragging", () => {
+    const root = new FakeElement();
+    const steps = [];
+    makeKnob(root, left, step => steps.push(step), () => {});
+    const button = { closest: () => button };
+    root.dispatch("pointerdown", { target: button, clientX: 150, clientY: 80 });
+    root.dispatch("pointermove", { target: button, clientX: 180, clientY: 110 });
+    root.dispatch("pointerup", { target: button });
+    assert.deepEqual(steps, []);
+});

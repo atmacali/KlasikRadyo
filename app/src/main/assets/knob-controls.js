@@ -70,6 +70,9 @@
     function start(state, event) {
         if (event.button !== 0 && event.pointerType !== 'touch') return;
         if (state.active.has(event.pointerId)) return;
+        const control = event.target && typeof event.target.closest === 'function'
+            ? event.target.closest('button, a, input, select, textarea, summary, label') : null;
+        if (control && !state.knobs.some(item => item.element === control)) return;
         let best = null;
         state.knobs.forEach(knob => {
             const g = geometry(knob, event);
