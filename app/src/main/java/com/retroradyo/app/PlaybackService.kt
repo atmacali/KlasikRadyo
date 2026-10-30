@@ -448,7 +448,7 @@ class PlaybackService : MediaSessionService() {
         }
         val player = mediaSession?.player
         val notificationBuilder = NotificationCompat.Builder(this, MONITOR_CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.ic_lock_idle_charging)
+            .setSmallIcon(android.R.drawable.ic_stat_icon)
             .setContentTitle(
                 player?.currentMediaItem?.mediaMetadata?.title?.toString()
                     ?.takeIf { it.isNotBlank() }
