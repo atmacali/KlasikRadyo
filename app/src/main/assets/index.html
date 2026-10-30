@@ -58,7 +58,8 @@
             gap: clamp(18px, 7vw, 36px);
             margin: 0 auto 28px;
         }
-        .knob-group { position: relative; min-width: 0; text-align: center; touch-action: none; }
+        .knob-group { position: relative; min-width: 0; text-align: center; }
+        .screensaver .knob-group { touch-action: none; }
         .knob-label {
             display: block;
             margin-bottom: 12px;
@@ -365,7 +366,7 @@
                 gap: clamp(72px, 17vw, 220px);
                 margin-bottom: 20px;
             }
-            .knob { --knob-size: clamp(176px, 49vh, 230px); --knob-pivot: clamp(70px, 19vh, 91px); }
+            .knob { --knob-size: clamp(120px, 40vh, 190px); --knob-pivot: calc(var(--knob-size) * 0.4); }
             .knob-label { margin-bottom: 8px; }
             .gesture-hint { margin-top: 8px; }
             .screensaver .app {

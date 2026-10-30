@@ -18,3 +18,8 @@ test("screensaver can be left by tapping empty space and shows a hint", () => {
     assert.match(html, /toggleScreensaver\(false\)/);
     assert.match(html, /class="screensaver-hint"/);
 });
+
+test("normal-mode knob groups do not block page scrolling", () => {
+    assert.match(html, /\.screensaver \.knob-group \{ touch-action: none; \}/);
+    assert.doesNotMatch(html, /\n\s*\.knob-group \{[^}]*touch-action/);
+});
