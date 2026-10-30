@@ -85,8 +85,37 @@ test("invalid catalog and custom-ID collision are atomic, and corrected catalog 
     assert.equal(result.stations.find(station => station.id === "2").url, "https://new.example/live");
     assert.equal(result.stations.find(station => station.id === "2").fav, true);
     assert.ok(result.stations.some(station => station.id === "custom-1"));
-    assert.ok(result.archivedCatalogStations.some(station => station.id === "gone"));
-    assert.ok(result.catalogDeletedIds.has("gone"));
+    assert.ok(!result.archivedCatalogStations.some(station => station.id === "gone"));
+    assert.ok(!result.catalogDeletedIds.has("gone"));
+});
+
+test("catalog entries removed upstream are deleted, user-deleted ones still in catalog stay archived", () => {
+    const entry = (id, url) => ({ id, defaultKey: id, name: `S${id}`, url });
+    const result = catalog.reconcile({
+        remoteStations: catalog.validate({
+            version: 1,
+            stations: [entry("1", "https://a.example/"), entry("2", "https://b.example/")]
+        }),
+        defaultStations: [],
+        stations: [
+            { ...entry("1", "https://a.example/"), catalogManaged: true, fav: true },
+            { ...entry("deneme", "https://deneme.example/"), catalogManaged: true },
+            { id: "custom-9", name: "Mine", url: "https://mine.example/", fav: false }
+        ],
+        catalogBaseline: [entry("1", "https://a.example/"), entry("deneme", "https://deneme.example/")],
+        archivedCatalogStations: [
+            { ...entry("2", "https://b.example/"), catalogManaged: true },
+            { ...entry("orphan", "https://orphan.example/"), catalogManaged: true }
+        ],
+        catalogDeletedIds: new Set(["2", "orphan"]),
+        currentStationId: "1",
+        stationOrder: ["deneme", "1", "custom-9"]
+    });
+    assert.deepEqual(result.stations.map(station => station.id).sort(), ["1", "custom-9"]);
+    assert.deepEqual(result.archivedCatalogStations.map(station => station.id), ["2"]);
+    assert.ok(!result.catalogDeletedIds.has("orphan"));
+    assert.deepEqual(result.stationOrder, ["1", "custom-9"]);
+    assert.equal(result.stations.find(station => station.id === "1").fav, true);
 });
 
 test("deletion of an old ID does not hide a different station that now uses its stream URL", () => {

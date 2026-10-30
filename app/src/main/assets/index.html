@@ -58,7 +58,14 @@
             gap: clamp(18px, 7vw, 36px);
             margin: 0 auto 28px;
         }
-        .knob-group { min-width: 0; text-align: center; touch-action: none; }
+        .knob-group { position: relative; min-width: 0; text-align: center; touch-action: none; }
+        .knob-group::after {
+            position: absolute;
+            inset: -55% -50%;
+            z-index: 0;
+            content: "";
+            touch-action: none;
+        }
         .knob-label {
             display: block;
             margin-bottom: 12px;
@@ -72,6 +79,7 @@
             --knob-pivot: clamp(45px, calc(19vw - 13px), 61px);
             --rotation: -135deg;
             position: relative;
+            z-index: 1;
             display: grid;
             width: var(--knob-size);
             height: var(--knob-size);
@@ -298,18 +306,39 @@
         .screensaver .knob-value,
         .screensaver .knob-hint { display: none; }
         .screensaver .knob {
-            border: 2px dashed #fff;
+            --knob-pivot: calc(var(--knob-size) * 0.38);
+            border: 0;
             background:
-                radial-gradient(circle, #000 0 80%, transparent 81%),
-                repeating-conic-gradient(from 0deg, #fff 0deg 10deg, #000 10deg 20deg);
+                radial-gradient(circle, #000 0 95%, transparent 96%),
+                repeating-conic-gradient(from -3deg, #fff 0deg 6deg, #000 6deg 30deg);
+            box-shadow: none;
+            outline-color: #fff;
+        }
+        .screensaver .knob::after {
+            position: absolute;
+            inset: 8%;
+            border-radius: 50%;
+            background:
+                radial-gradient(circle, #000 0 84%, transparent 85%),
+                repeating-conic-gradient(from -5deg, #fff 0deg 10deg, #000 10deg 30deg);
+            content: "";
+            pointer-events: none;
+        }
+        .screensaver .knob::before {
+            z-index: 1;
+            top: calc(var(--knob-size) * 0.2);
+            width: 1px;
+            height: calc(var(--knob-size) * 0.16);
+            border-radius: 0;
+            background: #fff;
             box-shadow: none;
         }
-        .screensaver .knob::before { top: 2px; width: 1px; height: 22px; border-radius: 0; background: #fff; box-shadow: none; }
         .screensaver .clock { font-size: clamp(32px, 10vh, 48px); font-weight: 200; }
         .screensaver .now-playing {
             font-weight: 300;
             font-size: clamp(16px, 5vh, 24px);
             color: #fff;
+            white-space: normal;
         }
         .screensaver .app { transform: translate(var(--screensaver-shift-x, 0px), var(--screensaver-shift-y, 0px)); }
         @media (prefers-reduced-motion: reduce) {
@@ -338,16 +367,17 @@
                 display: grid;
                 width: 100%;
                 min-height: calc(100dvh - max(24px, env(safe-area-inset-top)) - max(24px, env(safe-area-inset-bottom)));
-                grid-template-columns: minmax(0, 1fr) minmax(180px, 260px) minmax(0, 1fr);
+                grid-template-columns: minmax(0, 1fr) minmax(220px, 40%) minmax(0, 1fr);
                 align-items: center;
+                justify-items: center;
             }
-            .screensaver .header { grid-column: 2; grid-row: 1; margin: 0; }
+            .screensaver .header { grid-column: 2; grid-row: 1; margin: 0; text-align: center; }
             .screensaver .knobs { display: contents; }
             .screensaver .knob-group:first-child { grid-column: 1; grid-row: 1; }
             .screensaver .knob-group:last-child { grid-column: 3; grid-row: 1; }
-            .screensaver .clock { margin-top: 0; font-size: clamp(28px, 8vh, 36px); }
-            .screensaver .now-playing { font-size: clamp(14px, 4vh, 18px); }
-            .screensaver .knob { --knob-size: clamp(100px, 30vh, 180px); }
+            .screensaver .clock { margin-top: 0; font-size: clamp(36px, 13vh, 64px); }
+            .screensaver .now-playing { font-size: clamp(18px, 6.5vh, 32px); }
+            .screensaver .knob { --knob-size: clamp(100px, 52vh, 220px); }
         }
     </style>
 </head>
