@@ -12,11 +12,16 @@ test("AMOLED knob ticks are 10 degrees on and 10 degrees off in both rings", () 
     assert.ok(patterns.every(([, on]) => on === "10"));
 });
 
-test("screensaver can be left by tapping empty space and shows a hint", () => {
+test("ring masks use closest-side so ticks are not covered by the black fill", () => {
+    const masks = [...html.matchAll(/radial-gradient\(circle( closest-side)?, #000 0 (?:90|76)%/g)];
+    assert.equal(masks.length, 2);
+    assert.ok(masks.every(m => m[1]));
+});
+
+test("screensaver exits only via the station name; no empty-space exit or hint", () => {
     assert.doesNotMatch(html, /\.knob-group::after/);
-    assert.match(html, /screensaverTap/);
-    assert.match(html, /toggleScreensaver\(false\)/);
-    assert.match(html, /class="screensaver-hint"/);
+    assert.doesNotMatch(html, /screensaverTap|screensaver-hint|Boş alana/);
+    assert.match(html, /getElementById\('nowPlaying'\)\.addEventListener\('click', \(\) => \{\s*if \(screensaverActive\) toggleScreensaver\(false\)/);
 });
 
 test("normal-mode knob groups do not block page scrolling", () => {
