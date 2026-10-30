@@ -10,8 +10,8 @@
     {
       "id": "2",
       "defaultKey": "2",
-      "name": "Süper FM 90.8",
-      "url": "https://25593.live.streamtheworld.com:443/SUPER_FM.mp3"
+      "name": "Alem FM",
+      "url": "https://alemfm.radyotvonline.net/alemfmaac?/;stream.mp3"
     },
     {
       "id": "3",
@@ -34,7 +34,7 @@
     {
       "id": "6",
       "defaultKey": "6",
-      "name": "Süper FM",
+      "name": "Süper FM 90.8",
       "url": "https://25633.live.streamtheworld.com:443/SUPER_FM128AAC.aac"
     },
     {
