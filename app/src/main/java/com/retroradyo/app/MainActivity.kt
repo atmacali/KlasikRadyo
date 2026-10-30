@@ -74,7 +74,6 @@ class MainActivity : Activity() {
             Intent(this, PlaybackService::class.java).setAction(ACTION_START_CHARGING_MONITOR)
         )
 
-        // Android 13+ bildirim izni talebi
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
                 requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 101)
@@ -243,10 +242,15 @@ class MainActivity : Activity() {
         updateKeepScreenOn()
         pendingPowerAction = "toggleScreensaver(false)"
         runPendingPowerAction()
-        if (!getAutomationPreference(STOP_ON_UNPLUG, true)) {
+
+        val stopAndClose = getAutomationPreference(STOP_ON_UNPLUG, true)
+        val stopOnly = getAutomationPreference(STOP_ONLY_ON_UNPLUG, false)
+
+        if (!stopAndClose && !stopOnly) {
             updateKeepScreenOn()
             return
         }
+
         try {
             mediaController?.stop()
         } catch (e: Exception) {
@@ -254,7 +258,12 @@ class MainActivity : Activity() {
         }
         pendingPowerAction = STOP_RADIO_SCRIPT
         runPendingPowerAction()
-        finish()
+
+        if (stopAndClose && !stopOnly) {
+            finish()
+        } else {
+            updateKeepScreenOn()
+        }
     }
 
     private fun shouldHandleCharging(): Boolean =
@@ -303,11 +312,11 @@ class MainActivity : Activity() {
         val stopOnUnplug = getAutomationPreference(STOP_ON_UNPLUG, true)
         val bluetoothAutoPlay = isBluetoothAutoPlayEnabled()
         val chargeScreensaver = getAutomationPreference(CHARGE_SCREENSAVER, false)
-        val keepScreenOnAlways = getAutomationPreference(KEEP_SCREEN_ON_ALWAYS, false) // Yeni ayarı okuyoruz
-        
-        // 5. parametreyi de JavaScript'e gönderiyoruz
+        val keepScreenOnAlways = getAutomationPreference(KEEP_SCREEN_ON_ALWAYS, false)
+        val stopOnlyOnUnplug = getAutomationPreference(STOP_ONLY_ON_UNPLUG, false)
+
         webView.evaluateJavascript(
-            "applyAutomationSettingsFromNative($autoStart,$stopOnUnplug,$bluetoothAutoPlay,$chargeScreensaver,$keepScreenOnAlways)",
+            "applyAutomationSettingsFromNative($autoStart,$stopOnUnplug,$bluetoothAutoPlay,$chargeScreensaver,$keepScreenOnAlways,$stopOnlyOnUnplug)",
             null
         )
     }
@@ -376,6 +385,15 @@ class MainActivity : Activity() {
         fun setKeepScreenOnAlwaysEnabled(enabled: Boolean) {
             setAutomationPreference(KEEP_SCREEN_ON_ALWAYS, enabled)
             runOnUiThread { updateKeepScreenOn() }
+        }
+
+        @JavascriptInterface
+        fun getStopOnlyOnUnplugEnabled(): Boolean =
+            getAutomationPreference(STOP_ONLY_ON_UNPLUG, false)
+
+        @JavascriptInterface
+        fun setStopOnlyOnUnplugEnabled(enabled: Boolean) {
+            setAutomationPreference(STOP_ONLY_ON_UNPLUG, enabled)
         }
 
         @JavascriptInterface
@@ -665,6 +683,7 @@ class MainActivity : Activity() {
         private const val CHARGE_SCREENSAVER = "charge_screensaver"
         private const val REQUEST_BLUETOOTH_CONNECT = 102
         private const val KEEP_SCREEN_ON_ALWAYS = "keep_screen_on_always"
+        private const val STOP_ONLY_ON_UNPLUG = "stop_only_on_unplug"
 
         private val foregroundActivityLock = Any()
         @Volatile
