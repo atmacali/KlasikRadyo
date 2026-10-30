@@ -13,6 +13,7 @@ test("AMOLED knob ticks are 10 degrees on and 10 degrees off in both rings", () 
 });
 
 test("screensaver can be left by tapping empty space and shows a hint", () => {
+    assert.doesNotMatch(html, /\.knob-group::after/);
     assert.match(html, /screensaverTap/);
     assert.match(html, /toggleScreensaver\(false\)/);
     assert.match(html, /class="screensaver-hint"/);
