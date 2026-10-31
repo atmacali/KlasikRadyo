@@ -102,7 +102,44 @@ class PlaybackService : MediaSessionService() {
                 .coerceIn(0f, 1f)
             player.repeatMode = Player.REPEAT_MODE_ALL
             player.addListener(playerListener)
-            mediaSession = MediaSession.Builder(this, player).build()
+            mediaSession = MediaSession.Builder(this, player)
+                .setCallback(object : MediaSession.Callback {
+                    override fun onMediaButtonEvent(
+                        session: MediaSession,
+                        controllerInfo: MediaSession.ControllerInfo,
+                        intent: Intent
+                    ): Boolean {
+                        @Suppress("DEPRECATION")
+                        val keyEvent = intent.getParcelableExtra<android.view.KeyEvent>(Intent.EXTRA_KEY_EVENT)
+                        if (keyEvent != null && keyEvent.action == android.view.KeyEvent.ACTION_DOWN) {
+                            when (keyEvent.keyCode) {
+                                android.view.KeyEvent.KEYCODE_MEDIA_PLAY,
+                                android.view.KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE,
+                                android.view.KeyEvent.KEYCODE_HEADSETHOOK -> {
+                                    if (player.mediaItemCount == 0) {
+                                        restoreSavedPlaylist(player)
+                                    }
+                                    if ((keyEvent.keyCode == android.view.KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE || 
+                                         keyEvent.keyCode == android.view.KeyEvent.KEYCODE_HEADSETHOOK) && player.isPlaying) {
+                                        player.pause()
+                                    } else {
+                                        if (player.playbackState == Player.STATE_IDLE) {
+                                            player.prepare()
+                                        }
+                                        player.play()
+                                    }
+                                    return true
+                                }
+                                android.view.KeyEvent.KEYCODE_MEDIA_PAUSE -> {
+                                    player.pause()
+                                    return true
+                                }
+                            }
+                        }
+                        return super.onMediaButtonEvent(session, controllerInfo, intent)
+                    }
+                })
+                .build()
         } catch (e: Exception) {
             e.printStackTrace()
         }
