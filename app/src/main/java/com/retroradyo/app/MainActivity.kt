@@ -75,6 +75,13 @@ class MainActivity : Activity() {
             android.view.WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
         )
     }
+        // --- BU KISMI BURAYA EKLEYECEKSİN ---
+        // Boot üzerinden AMOLED ekran isteği gelmiş mi kontrol edelim
+        if (intent?.getBooleanExtra("start_screensaver", false) == true) {
+            // Sayfa yüklendiğinde ekran koruyucuyu aktif etmesi için bayrak bırakıyoruz
+            pendingPowerAction = "toggleScreensaver(true)"
+        }
+        // ------------------------------------
         wasCharging = isPowerConnected()
         if ((intent?.action == ACTION_POWER_CONNECTED || wasCharging) &&
             (getAutomationPreference(AUTO_START_ON_CHARGE, true) ||
