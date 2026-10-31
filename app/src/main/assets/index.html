@@ -438,6 +438,10 @@
                     <span>Radyo çalışırken AMOLED ekranını daima açık tut</span>
                     <input id="keepScreenOnAlwaysSetting" type="checkbox">
                 </label>
+                <label class="setting-row" for="autoStartOnBootSetting">
+                    <span>Telefon açıldığında radyoyu başlat</span>
+                    <input id="autoStartOnBootSetting" type="checkbox">
+                </label>
             </div>
             <div class="catalog-actions">
                 <button class="btn btn-primary" type="button" onclick="openModal()">＋ İSTASYON EKLE</button>
@@ -1157,7 +1161,7 @@
             updateDisplay();
         }
 
-        function applyAutomationSettingsFromNative(autoStartOnCharge, stopOnUnplug, bluetoothAutoPlay, chargeScreensaver, keepScreenOnAlways, stopOnlyOnUnplug) {
+        function applyAutomationSettingsFromNative(autoStartOnCharge, stopOnUnplug, bluetoothAutoPlay, chargeScreensaver, keepScreenOnAlways, stopOnlyOnUnplug, autoStartOnBoot) {
             document.getElementById('chargeStartSetting').checked = Boolean(autoStartOnCharge);
             document.getElementById('unplugStopSetting').checked = Boolean(stopOnUnplug);
             document.getElementById('bluetoothPlaySetting').checked = Boolean(bluetoothAutoPlay);
@@ -1165,6 +1169,10 @@
             document.getElementById('keepScreenOnAlwaysSetting').checked = Boolean(keepScreenOnAlways);
             const stopOnlyEl = document.getElementById('unplugStopOnlySetting');
             if (stopOnlyEl) stopOnlyEl.checked = Boolean(stopOnlyOnUnplug);
+            // YENİ EKLENEN KISIM
+            const autoStartBootEl = document.getElementById('autoStartOnBootSetting');
+            if (autoStartBootEl) autoStartBootEl.checked = Boolean(autoStartOnBoot);
+        }
         }
 
         function setupAutomationSettings() {
@@ -1229,6 +1237,13 @@
                 }
                 updateDisplay();
             });
+            // 2. KISIM: Boot (otomatik başlatma) butonunun tıklanmasını dinleyen yeni kod
+            const autoStartBootSetting = document.getElementById('autoStartOnBootSetting');
+            if (autoStartBootSetting) {
+                autoStartBootSetting.addEventListener('change', event => {
+                    if (bridge.setAutoStartOnBootEnabled) bridge.setAutoStartOnBootEnabled(event.target.checked);
+                });
+            }
         }
 
         function resumeLastStationOnLaunch() {
