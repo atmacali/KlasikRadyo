@@ -63,25 +63,15 @@ class MainActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
-        setShowWhenLocked(true)
-        setTurnScreenOn(true)
-        val keyguardManager = getSystemService(android.app.KeyguardManager::class.java)
-        keyguardManager?.requestDismissKeyguard(this, null)
-    } else {
-        @Suppress("DEPRECATION")
-        window.addFlags(
-            android.view.WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
-            android.view.WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD or
-            android.view.WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
-        )
-    }
-        // --- BU KISMI BURAYA EKLEYECEKSİN ---
-        // Boot üzerinden AMOLED ekran isteği gelmiş mi kontrol edelim
-        if (intent?.getBooleanExtra("start_screensaver", false) == true) {
-            // Sayfa yüklendiğinde ekran koruyucuyu aktif etmesi için bayrak bırakıyoruz
-            pendingPowerAction = "toggleScreensaver(true)"
+            setShowWhenLocked(true)
+            setTurnScreenOn(true)
+        } else {
+            @Suppress("DEPRECATION")
+            window.addFlags(
+                android.view.WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
+                android.view.WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
+            )
         }
-        // ------------------------------------
         wasCharging = isPowerConnected()
         if ((intent?.action == ACTION_POWER_CONNECTED || wasCharging) &&
             (getAutomationPreference(AUTO_START_ON_CHARGE, true) ||
@@ -89,6 +79,12 @@ class MainActivity : Activity() {
         ) {
             pendingPowerAction = powerConnectedScript()
             window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        }
+        if (intent?.action == ACTION_OPEN_SCREENSAVER) {
+            pendingPowerAction = listOfNotNull(pendingPowerAction, SCREENSAVER_ON_SCRIPT)
+                .joinToString(";")
+            window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            cancelScreensaverNotification()
         }
         ContextCompat.startForegroundService(
             this,
@@ -153,6 +149,7 @@ class MainActivity : Activity() {
         super.onNewIntent(intent)
         setIntent(intent)
         when (intent?.action) {
+            ACTION_OPEN_SCREENSAVER -> handleOpenScreensaver()
             ACTION_POWER_CONNECTED -> handlePowerConnected()
             ACTION_POWER_DISCONNECTED -> handlePowerDisconnected()
             ACTION_OPEN_FROM_MONITOR -> {
@@ -181,6 +178,7 @@ override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out
         pendingBluetoothPermissionKey?.let { key ->
             setAutomationPreference(key, true)
             refreshBluetoothMonitor()
+            if (key == AUTO_OPEN_ON_BLUETOOTH) requestLaunchPermission()
         } ?: run {
             if (pendingBluetoothPermissionRequest) {
                 setAutomationPreference(AUTO_PLAY_ON_BLUETOOTH, true)
@@ -247,6 +245,29 @@ override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out
             window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         } else {
             window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        }
+    }
+
+    private fun handleOpenScreensaver() {
+        window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        cancelScreensaverNotification()
+        pendingPowerAction = SCREENSAVER_ON_SCRIPT
+        runPendingPowerAction()
+    }
+
+    private fun cancelScreensaverNotification() {
+        getSystemService(android.app.NotificationManager::class.java)
+            ?.cancel(ScreensaverLauncher.NOTIFICATION_ID)
+    }
+
+    private fun requestLaunchPermission() {
+        if (ScreensaverLauncher.canStartFromBackground(this)) return
+        runOnUiThread {
+            try {
+                startActivity(ScreensaverLauncher.overlayPermissionIntent(this))
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
         }
     }
 
@@ -420,7 +441,10 @@ override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out
     fun getAutoStartOnBootEnabled(): Boolean = getAutomationPreference(AUTO_START_ON_BOOT, false)
 
     @JavascriptInterface
-    fun setAutoStartOnBootEnabled(enabled: Boolean) { setAutomationPreference(AUTO_START_ON_BOOT, enabled) }
+    fun setAutoStartOnBootEnabled(enabled: Boolean) {
+        setAutomationPreference(AUTO_START_ON_BOOT, enabled)
+        if (enabled) requestLaunchPermission()
+    }
 
     @JavascriptInterface
     fun getAutoOpenOnBluetoothEnabled(): Boolean = getAutomationPreference(AUTO_OPEN_ON_BLUETOOTH, false) && hasBluetoothConnectPermission()
@@ -434,6 +458,7 @@ override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out
         }
         setAutomationPreference(AUTO_OPEN_ON_BLUETOOTH, enabled)
         refreshBluetoothMonitor()
+        if (enabled) requestLaunchPermission()
         return true
     }
 
@@ -761,6 +786,15 @@ override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out
             return true
         }
 
+        fun dispatchScreensaverToVisibleActivity(): Boolean {
+            val activity = synchronized(foregroundActivityLock) { foregroundActivity } ?: return false
+            if (activity.isFinishing || activity.isDestroyed) return false
+            activity.runOnUiThread {
+                if (!activity.isFinishing && !activity.isDestroyed) activity.handleOpenScreensaver()
+            }
+            return true
+        }
+
         fun dispatchStationUploadStatus(message: String, isError: Boolean) {
             val activity = synchronized(foregroundActivityLock) { foregroundActivity } ?: return
             if (activity.isFinishing || activity.isDestroyed) return
@@ -779,6 +813,9 @@ override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out
         const val ACTION_START_CHARGING_MONITOR = "com.retroradyo.app.START_CHARGING_MONITOR"
         const val ACTION_REFRESH_AUTOMATION_RECEIVERS = "com.retroradyo.app.REFRESH_AUTOMATION_RECEIVERS"
 
+        const val ACTION_OPEN_SCREENSAVER = "com.retroradyo.app.OPEN_SCREENSAVER"
+
+        private const val SCREENSAVER_ON_SCRIPT = "toggleScreensaver(true)"
         private const val STOP_RADIO_SCRIPT = "stopRadio()"
         private const val RESUME_LAST_STATION_SCRIPT = "resumeLastStationOnLaunch()"
     }

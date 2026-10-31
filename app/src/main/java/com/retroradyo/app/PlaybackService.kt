@@ -48,14 +48,7 @@ class PlaybackService : MediaSessionService() {
         if (intent.action == BluetoothDevice.ACTION_ACL_CONNECTED) {
             if (isBluetoothAutoPlayEnabled()) resumeLastStation()
             
-            if (isBluetoothAutoOpenEnabled()) {
-                val launchIntent = Intent(context, MainActivity::class.java).apply {
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or 
-                             Intent.FLAG_ACTIVITY_CLEAR_TOP or 
-                             Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
-                }
-                try { context.startActivity(launchIntent) } catch (e: Exception) { e.printStackTrace() }
-            }
+            if (isBluetoothAutoOpenEnabled()) ScreensaverLauncher.launch(context.applicationContext)
         }
     }
 }
