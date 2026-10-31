@@ -35,6 +35,7 @@ class MainActivity : Activity() {
     private var wasCharging = false
     @Volatile
     private var pendingBluetoothPermissionRequest = false
+    private var pendingBluetoothPermissionKey: String? = null
     private lateinit var webView: WebView
     private val powerConnectionReceiver = PowerConnectionReceiver()
     private var powerReceiverRegistered = false
@@ -61,6 +62,19 @@ class MainActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+        setShowWhenLocked(true)
+        setTurnScreenOn(true)
+        val keyguardManager = getSystemService(android.app.KeyguardManager::class.java)
+        keyguardManager?.requestDismissKeyguard(this, null)
+    } else {
+        @Suppress("DEPRECATION")
+        window.addFlags(
+            android.view.WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
+            android.view.WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD or
+            android.view.WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
+        )
+    }
         wasCharging = isPowerConnected()
         if ((intent?.action == ACTION_POWER_CONNECTED || wasCharging) &&
             (getAutomationPreference(AUTO_START_ON_CHARGE, true) ||
@@ -152,21 +166,25 @@ class MainActivity : Activity() {
     }
 
     @Deprecated("Deprecated in Android, retained for runtime Bluetooth permission result")
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<out String>,
-        grantResults: IntArray
-    ) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode != REQUEST_BLUETOOTH_CONNECT) return
-        val granted = grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED
-        if (pendingBluetoothPermissionRequest && granted) {
-            setAutomationPreference(AUTO_PLAY_ON_BLUETOOTH, true)
+override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+    super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+    if (requestCode != REQUEST_BLUETOOTH_CONNECT) return
+    val granted = grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED
+    if (granted) {
+        pendingBluetoothPermissionKey?.let { key ->
+            setAutomationPreference(key, true)
             refreshBluetoothMonitor()
+        } ?: run {
+            if (pendingBluetoothPermissionRequest) {
+                setAutomationPreference(AUTO_PLAY_ON_BLUETOOTH, true)
+                refreshBluetoothMonitor()
+            }
         }
-        pendingBluetoothPermissionRequest = false
-        syncAutomationSettingsToWebView()
     }
+    pendingBluetoothPermissionKey = null
+    pendingBluetoothPermissionRequest = false
+    syncAutomationSettingsToWebView()
+}
 
     override fun onResume() {
         super.onResume()
@@ -313,9 +331,10 @@ class MainActivity : Activity() {
         val keepScreenOnAlways = getAutomationPreference(KEEP_SCREEN_ON_ALWAYS, false)
         val stopOnlyOnUnplug = getAutomationPreference(STOP_ONLY_ON_UNPLUG, false)
         val autoStartOnBoot = getAutomationPreference(AUTO_START_ON_BOOT, false) // YENİ
+        val autoOpenBluetooth = getAutomationPreference(AUTO_OPEN_ON_BLUETOOTH, false) && hasBluetoothConnectPermission()
 
         webView.evaluateJavascript(
-            "applyAutomationSettingsFromNative($autoStart,$stopOnUnplug,$bluetoothAutoPlay,$chargeScreensaver,$keepScreenOnAlways,$stopOnlyOnUnplug,$autoStartOnBoot)",
+            "applyAutomationSettingsFromNative($autoStart,$stopOnUnplug,$bluetoothAutoPlay,$chargeScreensaver,$keepScreenOnAlways,$stopOnlyOnUnplug,$autoStartOnBoot,$autoOpenBluetooth)",
             null
         )
     }
@@ -390,14 +409,26 @@ class MainActivity : Activity() {
         fun getStopOnlyOnUnplugEnabled(): Boolean =
             getAutomationPreference(STOP_ONLY_ON_UNPLUG, false)
 
-        @JavascriptInterface
-        fun getAutoStartOnBootEnabled(): Boolean =
-            getAutomationPreference(AUTO_START_ON_BOOT, false)
+@JavascriptInterface
+    fun getAutoStartOnBootEnabled(): Boolean = getAutomationPreference(AUTO_START_ON_BOOT, false)
 
-        @JavascriptInterface
-        fun setAutoStartOnBootEnabled(enabled: Boolean) {
-            setAutomationPreference(AUTO_START_ON_BOOT, enabled)
+    @JavascriptInterface
+    fun setAutoStartOnBootEnabled(enabled: Boolean) { setAutomationPreference(AUTO_START_ON_BOOT, enabled) }
+
+    @JavascriptInterface
+    fun getAutoOpenOnBluetoothEnabled(): Boolean = getAutomationPreference(AUTO_OPEN_ON_BLUETOOTH, false) && hasBluetoothConnectPermission()
+
+    @JavascriptInterface
+    fun setAutoOpenOnBluetoothEnabled(enabled: Boolean): Boolean {
+        if (enabled && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !hasBluetoothConnectPermission()) {
+            pendingBluetoothPermissionKey = AUTO_OPEN_ON_BLUETOOTH
+            runOnUiThread { requestPermissions(arrayOf(android.Manifest.permission.BLUETOOTH_CONNECT), REQUEST_BLUETOOTH_CONNECT) }
+            return false
         }
+        setAutomationPreference(AUTO_OPEN_ON_BLUETOOTH, enabled)
+        refreshBluetoothMonitor()
+        return true
+    }
 
         @JavascriptInterface
         fun setStopOnlyOnUnplugEnabled(enabled: Boolean) {
@@ -694,6 +725,7 @@ class MainActivity : Activity() {
         private const val STOP_ONLY_ON_UNPLUG = "stop_only_on_unplug"
         // YENİ EKLENEN SABİT
         private const val AUTO_START_ON_BOOT = "auto_start_on_boot"
+        private const val AUTO_OPEN_ON_BLUETOOTH = "auto_open_on_bluetooth"
 
         private val foregroundActivityLock = Any()
         @Volatile
