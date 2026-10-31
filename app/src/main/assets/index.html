@@ -442,6 +442,10 @@
                     <span>Telefon açıldığında radyoyu başlat</span>
                     <input id="autoStartOnBootSetting" type="checkbox">
                 </label>
+                <label class="setting-row" for="bluetoothOpenSetting">
+                <span>Bluetooth bağlanınca arayüzü aç</span>
+                <input id="bluetoothOpenSetting" type="checkbox">
+                </label>
             </div>
             <div class="catalog-actions">
                 <button class="btn btn-primary" type="button" onclick="openModal()">＋ İSTASYON EKLE</button>
@@ -1160,91 +1164,107 @@
             volume = Math.round(Math.max(0, Math.min(1, Number(savedVolume) || 0)) * 100);
             updateDisplay();
         }
-
-        function applyAutomationSettingsFromNative(autoStartOnCharge, stopOnUnplug, bluetoothAutoPlay, chargeScreensaver, keepScreenOnAlways, stopOnlyOnUnplug, autoStartOnBoot) {
-            document.getElementById('chargeStartSetting').checked = Boolean(autoStartOnCharge);
-            document.getElementById('unplugStopSetting').checked = Boolean(stopOnUnplug);
-            document.getElementById('bluetoothPlaySetting').checked = Boolean(bluetoothAutoPlay);
-            document.getElementById('chargeScreensaverSetting').checked = Boolean(chargeScreensaver);
-            document.getElementById('keepScreenOnAlwaysSetting').checked = Boolean(keepScreenOnAlways);
-            const stopOnlyEl = document.getElementById('unplugStopOnlySetting');
-            if (stopOnlyEl) stopOnlyEl.checked = Boolean(stopOnlyOnUnplug);
-            // YENİ EKLENEN KISIM
-            const autoStartBootEl = document.getElementById('autoStartOnBootSetting');
-            if (autoStartBootEl) autoStartBootEl.checked = Boolean(autoStartOnBoot);
-        }
+        function applyAutomationSettingsFromNative(autoStartOnCharge, stopOnUnplug, bluetoothAutoPlay, chargeScreensaver, keepScreenOnAlways, stopOnlyOnUnplug, autoStartOnBoot, autoOpenBluetooth) {
+        document.getElementById('chargeStartSetting').checked = Boolean(autoStartOnCharge);
+        document.getElementById('unplugStopSetting').checked = Boolean(stopOnUnplug);
+        document.getElementById('bluetoothPlaySetting').checked = Boolean(bluetoothAutoPlay);
+        document.getElementById('chargeScreensaverSetting').checked = Boolean(chargeScreensaver);
+        document.getElementById('keepScreenOnAlwaysSetting').checked = Boolean(keepScreenOnAlways);
         
+        const stopOnlyEl = document.getElementById('unplugStopOnlySetting');
+        if (stopOnlyEl) stopOnlyEl.checked = Boolean(stopOnlyOnUnplug);
+        
+        const autoStartBootEl = document.getElementById('autoStartOnBootSetting');
+        if (autoStartBootEl) autoStartBootEl.checked = Boolean(autoStartOnBoot);
 
-        function setupAutomationSettings() {
-            const bridge = window.AndroidBridge;
-            if (!bridge) return;
-            applyAutomationSettingsFromNative(
-                bridge.getAutoStartOnChargeEnabled(),
-                bridge.getStopOnUnplugEnabled(),
-                bridge.getBluetoothAutoPlayEnabled(),
-                bridge.getChargeScreensaverEnabled(),
-                (typeof bridge.getKeepScreenOnAlwaysEnabled === 'function') ? bridge.getKeepScreenOnAlwaysEnabled() : false,
-                (typeof bridge.getStopOnlyOnUnplugEnabled === 'function') ? bridge.getStopOnlyOnUnplugEnabled() : false
-            );
-            
-            const unplugStopSetting = document.getElementById('unplugStopSetting');
-            const unplugStopOnlySetting = document.getElementById('unplugStopOnlySetting');
+        const autoOpenBluetoothEl = document.getElementById('bluetoothOpenSetting');
+        if (autoOpenBluetoothEl) autoOpenBluetoothEl.checked = Boolean(autoOpenBluetooth);
+    }
 
-            document.getElementById('chargeStartSetting').addEventListener('change', event => {
-                bridge.setAutoStartOnChargeEnabled(event.target.checked);
-            });
-            
-            unplugStopSetting.addEventListener('change', event => {
-                bridge.setStopOnUnplugEnabled(event.target.checked);
-                if (event.target.checked && unplugStopOnlySetting.checked) {
-                    unplugStopOnlySetting.checked = false;
-                    if (bridge.setStopOnlyOnUnplugEnabled) bridge.setStopOnlyOnUnplugEnabled(false);
-                }
-            });
+    function setupAutomationSettings() {
+        const bridge = window.AndroidBridge;
+        if (!bridge) return;
+        
+        applyAutomationSettingsFromNative(
+            bridge.getAutoStartOnChargeEnabled(),
+            bridge.getStopOnUnplugEnabled(),
+            bridge.getBluetoothAutoPlayEnabled(),
+            bridge.getChargeScreensaverEnabled(),
+            (typeof bridge.getKeepScreenOnAlwaysEnabled === 'function') ? bridge.getKeepScreenOnAlwaysEnabled() : false,
+            (typeof bridge.getStopOnlyOnUnplugEnabled === 'function') ? bridge.getStopOnlyOnUnplugEnabled() : false,
+            (typeof bridge.getAutoStartOnBootEnabled === 'function') ? bridge.getAutoStartOnBootEnabled() : false,
+            (typeof bridge.getAutoOpenOnBluetoothEnabled === 'function') ? bridge.getAutoOpenOnBluetoothEnabled() : false
+        );
+        
+        const unplugStopSetting = document.getElementById('unplugStopSetting');
+        const unplugStopOnlySetting = document.getElementById('unplugStopOnlySetting');
 
-            if (unplugStopOnlySetting) {
-                unplugStopOnlySetting.addEventListener('change', event => {
-                    if (bridge.setStopOnlyOnUnplugEnabled) bridge.setStopOnlyOnUnplugEnabled(event.target.checked);
-                    if (event.target.checked && unplugStopSetting.checked) {
-                        unplugStopSetting.checked = false;
-                        bridge.setStopOnUnplugEnabled(false);
-                    }
-                });
+        document.getElementById('chargeStartSetting').addEventListener('change', event => {
+            bridge.setAutoStartOnChargeEnabled(event.target.checked);
+        });
+        
+        unplugStopSetting.addEventListener('change', event => {
+            bridge.setStopOnUnplugEnabled(event.target.checked);
+            if (event.target.checked && unplugStopOnlySetting.checked) {
+                unplugStopOnlySetting.checked = false;
+                if (bridge.setStopOnlyOnUnplugEnabled) bridge.setStopOnlyOnUnplugEnabled(false);
             }
+        });
 
-            document.getElementById('bluetoothPlaySetting').addEventListener('change', event => {
-                const applied = bridge.setBluetoothAutoPlayEnabled(event.target.checked);
-                if (!applied) {
-                    event.target.checked = bridge.getBluetoothAutoPlayEnabled();
+        if (unplugStopOnlySetting) {
+            unplugStopOnlySetting.addEventListener('change', event => {
+                if (bridge.setStopOnlyOnUnplugEnabled) bridge.setStopOnlyOnUnplugEnabled(event.target.checked);
+                if (event.target.checked && unplugStopSetting.checked) {
+                    unplugStopSetting.checked = false;
+                    bridge.setStopOnUnplugEnabled(false);
                 }
             });
-            document.getElementById('chargeScreensaverSetting').addEventListener('change', event => {
-                bridge.setChargeScreensaverEnabled(event.target.checked);
-            });
-            document.getElementById('keepScreenOnAlwaysSetting').addEventListener('change', event => {
-                if (typeof bridge.setKeepScreenOnAlwaysEnabled === 'function') {
-                    bridge.setKeepScreenOnAlwaysEnabled(event.target.checked);
-                }
-            });
-            const reorderSetting = document.getElementById('reorderStationsSetting');
+        }
+
+        document.getElementById('bluetoothPlaySetting').addEventListener('change', event => {
+            const applied = bridge.setBluetoothAutoPlayEnabled(event.target.checked);
+            if (!applied) event.target.checked = bridge.getBluetoothAutoPlayEnabled();
+        });
+        
+        document.getElementById('chargeScreensaverSetting').addEventListener('change', event => {
+            bridge.setChargeScreensaverEnabled(event.target.checked);
+        });
+        
+        document.getElementById('keepScreenOnAlwaysSetting').addEventListener('change', event => {
+            if (typeof bridge.setKeepScreenOnAlwaysEnabled === 'function') bridge.setKeepScreenOnAlwaysEnabled(event.target.checked);
+        });
+        
+        const reorderSetting = document.getElementById('reorderStationsSetting');
+        if (reorderSetting) {
             reorderSetting.checked = reorderStationsMode;
             reorderSetting.addEventListener('change', event => {
                 reorderStationsMode = event.target.checked;
-                try {
-                    localStorage.setItem('retro_reorder_mode', String(reorderStationsMode));
-                } catch {
-                    setCatalogStatus('Kanal düzenleme ayarı kaydedilemedi.', true);
-                }
+                try { localStorage.setItem('retro_reorder_mode', String(reorderStationsMode)); } catch {}
                 updateDisplay();
             });
-            // 2. KISIM: Boot (otomatik başlatma) butonunun tıklanmasını dinleyen yeni kod
-            const autoStartBootSetting = document.getElementById('autoStartOnBootSetting');
-            if (autoStartBootSetting) {
-                autoStartBootSetting.addEventListener('change', event => {
-                    if (bridge.setAutoStartOnBootEnabled) bridge.setAutoStartOnBootEnabled(event.target.checked);
-                });
-            }
         }
+
+        const autoStartBootSetting = document.getElementById('autoStartOnBootSetting');
+        if (autoStartBootSetting) {
+            autoStartBootSetting.addEventListener('change', event => {
+                if (bridge.setAutoStartOnBootEnabled) bridge.setAutoStartOnBootEnabled(event.target.checked);
+            });
+        }
+
+        const bluetoothOpenSetting = document.getElementById('bluetoothOpenSetting');
+        if (bluetoothOpenSetting) {
+            bluetoothOpenSetting.addEventListener('change', event => {
+                if (bridge.setAutoOpenOnBluetoothEnabled) {
+                    const applied = bridge.setAutoOpenOnBluetoothEnabled(event.target.checked);
+                    if (!applied) event.target.checked = bridge.getAutoOpenOnBluetoothEnabled();
+                }
+            });
+        }
+    }
+
+        
+
+
 
         function resumeLastStationOnLaunch() {
             const bridge = window.AndroidBridge;
