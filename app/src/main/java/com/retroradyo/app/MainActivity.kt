@@ -85,6 +85,7 @@ class MainActivity : Activity() {
                 .joinToString(";")
             window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
             cancelScreensaverNotification()
+            dismissKeyguardIfPossible()
         }
         ContextCompat.startForegroundService(
             this,
@@ -251,8 +252,15 @@ override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out
     private fun handleOpenScreensaver() {
         window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         cancelScreensaverNotification()
+        dismissKeyguardIfPossible()
         pendingPowerAction = SCREENSAVER_ON_SCRIPT
         runPendingPowerAction()
+    }
+
+    // Only removes a non-secure (swipe) lock screen; a PIN/pattern is never bypassed.
+    private fun dismissKeyguardIfPossible() {
+        getSystemService(android.app.KeyguardManager::class.java)
+            ?.requestDismissKeyguard(this, null)
     }
 
     private fun cancelScreensaverNotification() {
@@ -261,10 +269,33 @@ override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out
     }
 
     private fun requestLaunchPermission() {
-        if (ScreensaverLauncher.canStartFromBackground(this)) return
+        val isXiaomi = Build.MANUFACTURER.equals("xiaomi", true) ||
+            Build.MANUFACTURER.equals("redmi", true) || Build.MANUFACTURER.equals("poco", true)
+        if (!ScreensaverLauncher.canStartFromBackground(this)) {
+            runOnUiThread {
+                try {
+                    startActivity(ScreensaverLauncher.overlayPermissionIntent(this))
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+            return
+        }
+        if (!isXiaomi) return
         runOnUiThread {
             try {
-                startActivity(ScreensaverLauncher.overlayPermissionIntent(this))
+                if (isXiaomi) {
+                    startActivity(
+                        Intent("miui.intent.action.APP_PERM_EDITOR")
+                            .setClassName(
+                                "com.miui.securitycenter",
+                                "com.miui.permcenter.permissions.PermissionsEditorActivity"
+                            )
+                            .putExtra("extra_pkgname", packageName)
+                    )
+                } else {
+                    startActivity(ScreensaverLauncher.overlayPermissionIntent(this))
+                }
             } catch (e: Exception) {
                 e.printStackTrace()
             }
