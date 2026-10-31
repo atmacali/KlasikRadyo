@@ -60,6 +60,18 @@ class PlaybackService : MediaSessionService() {
                     .putString(SELECTED_STATION_KEY, stationId)
                     .apply()
             }
+            // --- YENİ EKLENEN KISIM ---
+            // Bluetooth kulaklık donanım tuşlarıyla (veya atlama ile) kanal değiştiğinde
+            // radyo donmuş veya durmuşsa tekrar çalmaya zorlar.
+            if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_SEEK) {
+                mediaSession?.player?.let { player ->
+                    if (player.playbackState == Player.STATE_IDLE) {
+                        player.prepare()
+                    }
+                    player.play()
+                }
+            }
+            // --------------------------
             if (mediaSession?.player?.isPlaying == true) {
                 submitCurrentStationIfPending()
             }
@@ -138,12 +150,22 @@ class PlaybackService : MediaSessionService() {
                 player.stop()
                 updateMonitorNotification(isPlaying = false)
             }
+// --- GÜNCELLENEN KISIM ---
             ACTION_NOTIFICATION_PREVIOUS -> mediaSession?.player?.let { player ->
-                if (player.mediaItemCount > 1) player.seekToPreviousMediaItem()
+                if (player.mediaItemCount > 1) {
+                    player.seekToPreviousMediaItem()
+                    if (player.playbackState == Player.STATE_IDLE) player.prepare()
+                    player.play()
+                }
             }
             ACTION_NOTIFICATION_NEXT -> mediaSession?.player?.let { player ->
-                if (player.mediaItemCount > 1) player.seekToNextMediaItem()
+                if (player.mediaItemCount > 1) {
+                    player.seekToNextMediaItem()
+                    if (player.playbackState == Player.STATE_IDLE) player.prepare()
+                    player.play()
+                }
             }
+            // -------------------------
             MainActivity.ACTION_REFRESH_AUTOMATION_RECEIVERS -> refreshBluetoothReceiver()
         }
         return START_STICKY
