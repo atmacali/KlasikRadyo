@@ -38,6 +38,12 @@ class MainActivity : Activity() {
     private lateinit var webView: WebView
     private val powerConnectionReceiver = PowerConnectionReceiver()
     private var powerReceiverRegistered = false
+    private var backPressCount = 0
+    private val backPressHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private val backPressRunnable = Runnable {
+        backPressCount = 0
+        finish()
+    }
     private val playerListener = object : Player.Listener {
         override fun onIsPlayingChanged(isPlaying: Boolean) {
             updateKeepScreenOn()
@@ -61,6 +67,32 @@ class MainActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Geri tuşu çift tıklama yakalayıcısı
+        onBackPressedDispatcher.addCallback(this, object : androidx.activity.OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                backPressCount++
+                if (backPressCount == 1) {
+                    backPressHandler.postDelayed(backPressRunnable, 400)
+                } else if (backPressCount == 2) {
+                    backPressHandler.removeCallbacks(backPressRunnable)
+                    backPressCount = 0
+                    mediaController?.let { controller ->
+                        if (controller.isPlaying) {
+                            controller.pause()
+                        } else {
+                            if (controller.mediaItemCount == 0) {
+                                if (::webView.isInitialized && pageReady) {
+                                    webView.evaluateJavascript("resumeLastStationOnLaunch()", null)
+                                }
+                            } else {
+                                if (controller.playbackState == Player.STATE_IDLE) controller.prepare()
+                                controller.play()
+                            }
+                        }
+                    }
+                }
+            }
+        })
         wasCharging = isPowerConnected()
         if ((intent?.action == ACTION_POWER_CONNECTED || wasCharging) &&
             (getAutomationPreference(AUTO_START_ON_CHARGE, true) ||
