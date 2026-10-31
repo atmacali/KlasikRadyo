@@ -312,9 +312,10 @@ class MainActivity : Activity() {
         val chargeScreensaver = getAutomationPreference(CHARGE_SCREENSAVER, false)
         val keepScreenOnAlways = getAutomationPreference(KEEP_SCREEN_ON_ALWAYS, false)
         val stopOnlyOnUnplug = getAutomationPreference(STOP_ONLY_ON_UNPLUG, false)
+        val autoStartOnBoot = getAutomationPreference(AUTO_START_ON_BOOT, false) // YENİ
 
         webView.evaluateJavascript(
-            "applyAutomationSettingsFromNative($autoStart,$stopOnUnplug,$bluetoothAutoPlay,$chargeScreensaver,$keepScreenOnAlways,$stopOnlyOnUnplug)",
+            "applyAutomationSettingsFromNative($autoStart,$stopOnUnplug,$bluetoothAutoPlay,$chargeScreensaver,$keepScreenOnAlways,$stopOnlyOnUnplug,$autoStartOnBoot)",
             null
         )
     }
@@ -388,6 +389,15 @@ class MainActivity : Activity() {
         @JavascriptInterface
         fun getStopOnlyOnUnplugEnabled(): Boolean =
             getAutomationPreference(STOP_ONLY_ON_UNPLUG, false)
+
+        @JavascriptInterface
+        fun getAutoStartOnBootEnabled(): Boolean =
+            getAutomationPreference(AUTO_START_ON_BOOT, false)
+
+        @JavascriptInterface
+        fun setAutoStartOnBootEnabled(enabled: Boolean) {
+            setAutomationPreference(AUTO_START_ON_BOOT, enabled)
+        }
 
         @JavascriptInterface
         fun setStopOnlyOnUnplugEnabled(enabled: Boolean) {
@@ -682,6 +692,8 @@ class MainActivity : Activity() {
         private const val REQUEST_BLUETOOTH_CONNECT = 102
         private const val KEEP_SCREEN_ON_ALWAYS = "keep_screen_on_always"
         private const val STOP_ONLY_ON_UNPLUG = "stop_only_on_unplug"
+        // YENİ EKLENEN SABİT
+        private const val AUTO_START_ON_BOOT = "auto_start_on_boot"
 
         private val foregroundActivityLock = Any()
         @Volatile
