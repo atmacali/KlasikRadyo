@@ -19,6 +19,8 @@ class BootReceiver : BroadcastReceiver() {
                         addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or 
                                  Intent.FLAG_ACTIVITY_CLEAR_TOP or 
                                  Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
+                        // Telefon açıldığında AMOLED ekran koruyucu modunu direkt tetiklemek için ekledik:
+                        putExtra("start_screensaver", true)
                     }
                     try {
                         context.startActivity(launchIntent)
