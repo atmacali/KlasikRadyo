@@ -240,8 +240,6 @@ class MainActivity : Activity() {
     private fun handlePowerDisconnected() {
         wasCharging = false
         updateKeepScreenOn()
-        pendingPowerAction = "toggleScreensaver(false)"
-        runPendingPowerAction()
 
         val stopAndClose = getAutomationPreference(STOP_ON_UNPLUG, true)
         val stopOnly = getAutomationPreference(STOP_ONLY_ON_UNPLUG, false)
