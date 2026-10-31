@@ -38,12 +38,6 @@ class MainActivity : Activity() {
     private lateinit var webView: WebView
     private val powerConnectionReceiver = PowerConnectionReceiver()
     private var powerReceiverRegistered = false
-    private var backPressCount = 0
-    private val backPressHandler = android.os.Handler(android.os.Looper.getMainLooper())
-    private val backPressRunnable = Runnable {
-        backPressCount = 0
-        finish()
-    }
     private val playerListener = object : Player.Listener {
         override fun onIsPlayingChanged(isPlaying: Boolean) {
             updateKeepScreenOn()
@@ -132,31 +126,6 @@ class MainActivity : Activity() {
             loadUrl("file:///android_asset/index.html")
         }
         setContentView(webView)
-    }
-
-    @Deprecated("Deprecated in Java")
-    override fun onBackPressed() {
-        backPressCount++
-        if (backPressCount == 1) {
-            backPressHandler.postDelayed(backPressRunnable, 400)
-        } else if (backPressCount == 2) {
-            backPressHandler.removeCallbacks(backPressRunnable)
-            backPressCount = 0
-            mediaController?.let { controller ->
-                if (controller.isPlaying) {
-                    controller.pause()
-                } else {
-                    if (controller.mediaItemCount == 0) {
-                        if (::webView.isInitialized && pageReady) {
-                            webView.evaluateJavascript("resumeLastStationOnLaunch()", null)
-                        }
-                    } else {
-                        if (controller.playbackState == Player.STATE_IDLE) controller.prepare()
-                        controller.play()
-                    }
-                }
-            }
-        }
     }
 
     override fun onNewIntent(intent: Intent) {
