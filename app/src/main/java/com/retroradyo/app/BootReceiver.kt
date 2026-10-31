@@ -31,17 +31,22 @@ class BootReceiver : BroadcastReceiver() {
 
         if (autoStartOnBoot) {
             val pendingResult = goAsync()
-            Handler(Looper.getMainLooper()).postDelayed({
-                try {
-                    ScreensaverLauncher.launch(context.applicationContext)
-                } finally {
-                    pendingResult.finish()
-                }
-            }, LAUNCH_DELAY_MS)
+            val handler = Handler(Looper.getMainLooper())
+            val appContext = context.applicationContext
+            LAUNCH_DELAYS_MS.forEachIndexed { index, delay ->
+                handler.postDelayed({
+                    try {
+                        // Retries only while the app is still not on screen.
+                        if (index == 0 || !MainActivity.isVisible()) ScreensaverLauncher.launch(appContext)
+                    } finally {
+                        if (index == LAUNCH_DELAYS_MS.lastIndex) pendingResult.finish()
+                    }
+                }, delay)
+            }
         }
     }
 
     private companion object {
-        const val LAUNCH_DELAY_MS = 5_000L
+        val LAUNCH_DELAYS_MS = longArrayOf(5_000L, 20_000L, 40_000L)
     }
 }

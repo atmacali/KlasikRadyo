@@ -138,6 +138,7 @@ class PlaybackService : MediaSessionService() {
         super.onStartCommand(intent, flags, startId)
         when (intent?.action) {
             ACTION_NOTIFICATION_TOGGLE -> mediaSession?.player?.let { player ->
+                ensurePlaylistLoaded(player)
                 if (player.isPlaying) {
                     player.pause()
                 } else if (player.mediaItemCount > 0) {
@@ -152,6 +153,7 @@ class PlaybackService : MediaSessionService() {
             }
 // --- GÜNCELLENEN KISIM ---
             ACTION_NOTIFICATION_PREVIOUS -> mediaSession?.player?.let { player ->
+                ensurePlaylistLoaded(player)
                 if (player.mediaItemCount > 1) {
                     player.seekToPreviousMediaItem()
                     if (player.playbackState == Player.STATE_IDLE) player.prepare()
@@ -159,6 +161,7 @@ class PlaybackService : MediaSessionService() {
                 }
             }
             ACTION_NOTIFICATION_NEXT -> mediaSession?.player?.let { player ->
+                ensurePlaylistLoaded(player)
                 if (player.mediaItemCount > 1) {
                     player.seekToNextMediaItem()
                     if (player.playbackState == Player.STATE_IDLE) player.prepare()
@@ -250,6 +253,12 @@ class PlaybackService : MediaSessionService() {
     private fun getAutomationPreference(key: String, defaultValue: Boolean): Boolean =
         getSharedPreferences(AUTOMATION_PREFERENCES, MODE_PRIVATE)
             .getBoolean(key, defaultValue)
+
+    private fun ensurePlaylistLoaded(player: Player) {
+        if (player.mediaItemCount == 0) {
+            runCatching { restoreSavedPlaylist(player) }.onFailure { it.printStackTrace() }
+        }
+    }
 
     private fun restoreSavedPlaylist(player: Player) {
         val preferences = getSharedPreferences(PLAYBACK_PREFERENCES, MODE_PRIVATE)

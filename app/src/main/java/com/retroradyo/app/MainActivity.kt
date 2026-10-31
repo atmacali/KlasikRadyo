@@ -1,4 +1,4 @@
-package com.retroradyo.app
+﻿package com.retroradyo.app
 
 import android.app.Activity
 import android.content.ComponentName
@@ -84,7 +84,6 @@ class MainActivity : Activity() {
             pendingPowerAction = listOfNotNull(pendingPowerAction, SCREENSAVER_ON_SCRIPT)
                 .joinToString(";")
             window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-            cancelScreensaverNotification()
             dismissKeyguardIfPossible()
         }
         ContextCompat.startForegroundService(
@@ -251,7 +250,6 @@ override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out
 
     private fun handleOpenScreensaver() {
         window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        cancelScreensaverNotification()
         dismissKeyguardIfPossible()
         pendingPowerAction = SCREENSAVER_ON_SCRIPT
         runPendingPowerAction()
@@ -261,11 +259,6 @@ override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out
     private fun dismissKeyguardIfPossible() {
         getSystemService(android.app.KeyguardManager::class.java)
             ?.requestDismissKeyguard(this, null)
-    }
-
-    private fun cancelScreensaverNotification() {
-        getSystemService(android.app.NotificationManager::class.java)
-            ?.cancel(ScreensaverLauncher.NOTIFICATION_ID)
     }
 
     private fun requestLaunchPermission() {
@@ -816,6 +809,8 @@ override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out
             }
             return true
         }
+
+        fun isVisible(): Boolean = synchronized(foregroundActivityLock) { foregroundActivity } != null
 
         fun dispatchScreensaverToVisibleActivity(): Boolean {
             val activity = synchronized(foregroundActivityLock) { foregroundActivity } ?: return false
