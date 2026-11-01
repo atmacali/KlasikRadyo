@@ -15,7 +15,8 @@ class BootReceiver : BroadcastReceiver() {
         val prefs = context.getSharedPreferences("radio_automation", Context.MODE_PRIVATE)
         val autoStartOnBoot = prefs.getBoolean("auto_start_on_boot", false)
         val bluetoothMonitor = prefs.getBoolean("auto_open_on_bluetooth", false) ||
-            prefs.getBoolean("auto_play_on_bluetooth", false)
+            prefs.getBoolean("auto_play_on_bluetooth", false) ||
+            prefs.getBoolean("charge_bluetooth_play", false)
         if (!autoStartOnBoot && !bluetoothMonitor) return
 
         // Keeps the Bluetooth listener alive after a reboot without opening the app first.
@@ -30,23 +31,18 @@ class BootReceiver : BroadcastReceiver() {
         }
 
         if (autoStartOnBoot) {
-            val pendingResult = goAsync()
             val handler = Handler(Looper.getMainLooper())
             val appContext = context.applicationContext
             LAUNCH_DELAYS_MS.forEachIndexed { index, delay ->
                 handler.postDelayed({
-                    try {
-                        // Retries only while the app is still not on screen.
-                        if (index == 0 || !MainActivity.isVisible()) ScreensaverLauncher.launch(appContext)
-                    } finally {
-                        if (index == LAUNCH_DELAYS_MS.lastIndex) pendingResult.finish()
-                    }
+                    // Retries only while the app is still not on screen.
+                    if (index == 0 || !MainActivity.isVisible()) ScreensaverLauncher.launch(appContext)
                 }, delay)
             }
         }
     }
 
     private companion object {
-        val LAUNCH_DELAYS_MS = longArrayOf(5_000L, 20_000L, 40_000L)
+        val LAUNCH_DELAYS_MS = longArrayOf(30_000L, 36_000L, 44_000L, 55_000L, 70_000L, 90_000L)
     }
 }

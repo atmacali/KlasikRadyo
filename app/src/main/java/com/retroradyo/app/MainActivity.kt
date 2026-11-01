@@ -384,9 +384,10 @@ override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out
         val stopOnlyOnUnplug = getAutomationPreference(STOP_ONLY_ON_UNPLUG, false)
         val autoStartOnBoot = getAutomationPreference(AUTO_START_ON_BOOT, false) // YENİ
         val autoOpenBluetooth = getAutomationPreference(AUTO_OPEN_ON_BLUETOOTH, false) && hasBluetoothConnectPermission()
+        val chargeBluetooth = getAutomationPreference(CHARGE_BLUETOOTH_PLAY, false) && hasBluetoothConnectPermission()
 
         webView.evaluateJavascript(
-            "applyAutomationSettingsFromNative($autoStart,$stopOnUnplug,$bluetoothAutoPlay,$chargeScreensaver,$keepScreenOnAlways,$stopOnlyOnUnplug,$autoStartOnBoot,$autoOpenBluetooth)",
+            "applyAutomationSettingsFromNative($autoStart,$stopOnUnplug,$bluetoothAutoPlay,$chargeScreensaver,$keepScreenOnAlways,$stopOnlyOnUnplug,$autoStartOnBoot,$autoOpenBluetooth,$chargeBluetooth)",
             null
         )
     }
@@ -462,7 +463,53 @@ override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out
             getAutomationPreference(STOP_ONLY_ON_UNPLUG, false)
 
 @JavascriptInterface
-    fun getAutoStartOnBootEnabled(): Boolean = getAutomationPreference(AUTO_START_ON_BOOT, false)
+fun getChargeBluetoothPlayEnabled(): Boolean =
+    getAutomationPreference(CHARGE_BLUETOOTH_PLAY, false) && hasBluetoothConnectPermission()
+
+@JavascriptInterface
+fun setChargeBluetoothPlayEnabled(enabled: Boolean): Boolean {
+    if (enabled && !hasBluetoothConnectPermission()) {
+        pendingBluetoothPermissionKey = CHARGE_BLUETOOTH_PLAY
+        runOnUiThread { requestPermissions(arrayOf(android.Manifest.permission.BLUETOOTH_CONNECT), REQUEST_BLUETOOTH_CONNECT) }
+        return false
+    }
+    setAutomationPreference(CHARGE_BLUETOOTH_PLAY, enabled)
+    refreshBluetoothMonitor()
+    return true
+}
+
+@JavascriptInterface
+fun getPairedBluetoothDevicesJson(): String {
+    val result = org.json.JSONArray()
+    if (!hasBluetoothConnectPermission()) return result.toString()
+    val selected = getSharedPreferences(AUTOMATION_PREFERENCES, MODE_PRIVATE)
+        .getStringSet(CHARGE_BLUETOOTH_DEVICES, emptySet()).orEmpty()
+    try {
+        getSystemService(android.bluetooth.BluetoothManager::class.java)
+            ?.adapter?.bondedDevices?.sortedBy { it.name ?: it.address }?.forEach { device ->
+                result.put(
+                    org.json.JSONObject()
+                        .put("name", device.name ?: device.address)
+                        .put("address", device.address)
+                        .put("selected", device.address in selected)
+                )
+            }
+    } catch (e: SecurityException) {
+        e.printStackTrace()
+    }
+    return result.toString()
+}
+
+@JavascriptInterface
+fun setChargeBluetoothDevices(addressesJson: String) {
+    val array = org.json.JSONArray(addressesJson)
+    val addresses = (0 until array.length()).map { array.getString(it) }.toSet()
+    getSharedPreferences(AUTOMATION_PREFERENCES, MODE_PRIVATE)
+        .edit().putStringSet(CHARGE_BLUETOOTH_DEVICES, addresses).apply()
+}
+
+@JavascriptInterface
+fun getAutoStartOnBootEnabled(): Boolean = getAutomationPreference(AUTO_START_ON_BOOT, false)
 
     @JavascriptInterface
     fun setAutoStartOnBootEnabled(enabled: Boolean) {
@@ -782,6 +829,8 @@ override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out
         // YENİ EKLENEN SABİT
         private const val AUTO_START_ON_BOOT = "auto_start_on_boot"
         private const val AUTO_OPEN_ON_BLUETOOTH = "auto_open_on_bluetooth"
+        private const val CHARGE_BLUETOOTH_PLAY = "charge_bluetooth_play"
+        private const val CHARGE_BLUETOOTH_DEVICES = "charge_bluetooth_devices"
 
         private val foregroundActivityLock = Any()
         @Volatile
