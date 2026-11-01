@@ -976,10 +976,23 @@
             selectStation(ordered[nextIndex].id);
         }
 
+        // Knob position (0-100) <-> player gain: -40 dB at the lowest step, 0 dB at 100, 0 = mute.
+        const VOLUME_RANGE_DB = 40;
+        function volumeToGain(position) {
+            if (position <= 0) return 0;
+            return Math.pow(10, -(VOLUME_RANGE_DB / 20) * (1 - position / 100));
+        }
+        function gainToVolume(gain) {
+            const g = Math.max(0, Math.min(1, Number(gain) || 0));
+            if (g <= 0) return 0;
+            const position = 100 * (1 + (20 * Math.log10(g)) / VOLUME_RANGE_DB);
+            return Math.max(0, Math.min(100, Math.round(position)));
+        }
+
         function changeVolume(steps) {
             if (!steps) return;
             volume = Math.max(0, Math.min(100, volume + steps * 5));
-            if (window.AndroidBridge) window.AndroidBridge.setVolume(volume / 100);
+            if (window.AndroidBridge) window.AndroidBridge.setVolume(volumeToGain(volume));
             updateDisplay();
         }
 
@@ -1167,7 +1180,7 @@
         }
 
         function setVolumeFromNative(savedVolume) {
-            volume = Math.round(Math.max(0, Math.min(1, Number(savedVolume) || 0)) * 100);
+            volume = gainToVolume(savedVolume);
             updateDisplay();
         }
         function applyAutomationSettingsFromNative(autoStartOnCharge, stopOnUnplug, bluetoothAutoPlay, chargeScreensaver, keepScreenOnAlways, stopOnlyOnUnplug, autoStartOnBoot, autoOpenBluetooth, chargeBluetooth) {
@@ -1386,7 +1399,7 @@
         );
         const savedStationId = loadSelectedStationId();
         if (window.AndroidBridge && typeof window.AndroidBridge.getSavedVolume === 'function') {
-            volume = Math.round(Math.max(0, Math.min(1, window.AndroidBridge.getSavedVolume())) * 100);
+            volume = gainToVolume(window.AndroidBridge.getSavedVolume());
         }
         currentStationId = sortedStations().find(station => station.id === savedStationId)?.id
             || sortedStations()[0]?.id
