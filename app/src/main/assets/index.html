@@ -371,7 +371,8 @@
             .screensaver .knob-group:last-child { grid-column: 3; grid-row: 1; }
             .screensaver .clock { margin-top: 0; font-size: clamp(36px, 13vh, 64px); }
             .screensaver .now-playing { font-size: clamp(18px, 6.5vh, 32px); }
-            .screensaver .knob { --knob-size: clamp(100px, 52vh, 220px); }
+            .screensaver .knob { --knob-size: min(clamp(100px, 52vh, 220px), 24vw); }
+            .screensaver .app { box-sizing: border-box; padding: 0 max(28px, 4vw); }
         }
     </style>
 </head>
@@ -446,6 +447,11 @@
                 <span>Bluetooth bağlanınca arayüzü aç</span>
                 <input id="bluetoothOpenSetting" type="checkbox">
                 </label>
+                <label class="setting-row" for="chargeBluetoothSetting">
+                    <span>Şarjdayken seçili Bluetooth cihaza bağlanınca radyoyu çal</span>
+                    <input id="chargeBluetoothSetting" type="checkbox">
+                </label>
+                <div id="chargeBluetoothDevices" hidden></div>
             </div>
             <div class="catalog-actions">
                 <button class="btn btn-primary" type="button" onclick="openModal()">＋ İSTASYON EKLE</button>
@@ -1164,7 +1170,10 @@
             volume = Math.round(Math.max(0, Math.min(1, Number(savedVolume) || 0)) * 100);
             updateDisplay();
         }
-        function applyAutomationSettingsFromNative(autoStartOnCharge, stopOnUnplug, bluetoothAutoPlay, chargeScreensaver, keepScreenOnAlways, stopOnlyOnUnplug, autoStartOnBoot, autoOpenBluetooth) {
+        function applyAutomationSettingsFromNative(autoStartOnCharge, stopOnUnplug, bluetoothAutoPlay, chargeScreensaver, keepScreenOnAlways, stopOnlyOnUnplug, autoStartOnBoot, autoOpenBluetooth, chargeBluetooth) {
+        const chargeBluetoothEl = document.getElementById('chargeBluetoothSetting');
+        if (chargeBluetoothEl) chargeBluetoothEl.checked = Boolean(chargeBluetooth);
+        renderChargeBluetoothDevices();
         document.getElementById('chargeStartSetting').checked = Boolean(autoStartOnCharge);
         document.getElementById('unplugStopSetting').checked = Boolean(stopOnUnplug);
         document.getElementById('bluetoothPlaySetting').checked = Boolean(bluetoothAutoPlay);
@@ -1181,6 +1190,39 @@
         if (autoOpenBluetoothEl) autoOpenBluetoothEl.checked = Boolean(autoOpenBluetooth);
     }
 
+    function renderChargeBluetoothDevices() {
+        const box = document.getElementById('chargeBluetoothDevices');
+        const bridge = window.AndroidBridge;
+        if (!box || !bridge || typeof bridge.getPairedBluetoothDevicesJson !== 'function') return;
+        const enabled = document.getElementById('chargeBluetoothSetting').checked;
+        box.hidden = !enabled;
+        box.replaceChildren();
+        if (!enabled) return;
+        let devices = [];
+        try { devices = JSON.parse(bridge.getPairedBluetoothDevicesJson()); } catch {}
+        if (!devices.length) {
+            box.textContent = 'Eşleşmiş Bluetooth cihaz bulunamadı.';
+            return;
+        }
+        const save = () => {
+            const selected = [...box.querySelectorAll('input:checked')].map(input => input.value);
+            bridge.setChargeBluetoothDevices(JSON.stringify(selected));
+        };
+        devices.forEach(device => {
+            const row = document.createElement('label');
+            row.className = 'setting-row';
+            const name = document.createElement('span');
+            name.textContent = device.name;
+            const input = document.createElement('input');
+            input.type = 'checkbox';
+            input.value = device.address;
+            input.checked = Boolean(device.selected);
+            input.addEventListener('change', save);
+            row.append(name, input);
+            box.append(row);
+        });
+    }
+
     function setupAutomationSettings() {
         const bridge = window.AndroidBridge;
         if (!bridge) return;
@@ -1193,7 +1235,8 @@
             (typeof bridge.getKeepScreenOnAlwaysEnabled === 'function') ? bridge.getKeepScreenOnAlwaysEnabled() : false,
             (typeof bridge.getStopOnlyOnUnplugEnabled === 'function') ? bridge.getStopOnlyOnUnplugEnabled() : false,
             (typeof bridge.getAutoStartOnBootEnabled === 'function') ? bridge.getAutoStartOnBootEnabled() : false,
-            (typeof bridge.getAutoOpenOnBluetoothEnabled === 'function') ? bridge.getAutoOpenOnBluetoothEnabled() : false
+            (typeof bridge.getAutoOpenOnBluetoothEnabled === 'function') ? bridge.getAutoOpenOnBluetoothEnabled() : false,
+            (typeof bridge.getChargeBluetoothPlayEnabled === 'function') ? bridge.getChargeBluetoothPlayEnabled() : false
         );
         
         const unplugStopSetting = document.getElementById('unplugStopSetting');
@@ -1248,6 +1291,16 @@
         if (autoStartBootSetting) {
             autoStartBootSetting.addEventListener('change', event => {
                 if (bridge.setAutoStartOnBootEnabled) bridge.setAutoStartOnBootEnabled(event.target.checked);
+            });
+        }
+
+        const chargeBluetoothSetting = document.getElementById('chargeBluetoothSetting');
+        if (chargeBluetoothSetting) {
+            chargeBluetoothSetting.addEventListener('change', event => {
+                if (typeof bridge.setChargeBluetoothPlayEnabled !== 'function') return;
+                const applied = bridge.setChargeBluetoothPlayEnabled(event.target.checked);
+                if (!applied) event.target.checked = bridge.getChargeBluetoothPlayEnabled();
+                renderChargeBluetoothDevices();
             });
         }
 

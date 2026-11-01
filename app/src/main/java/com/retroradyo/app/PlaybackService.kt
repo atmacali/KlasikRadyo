@@ -43,10 +43,23 @@ class PlaybackService : MediaSessionService() {
     private var notificationStatusMessage: String? = null
     private var notificationStatusGeneration = 0
     private val mainHandler = Handler(Looper.getMainLooper())
+    private val connectedBluetoothAddresses = mutableSetOf<String>()
     private val bluetoothReceiver = object : android.content.BroadcastReceiver() {
     override fun onReceive(context: android.content.Context, intent: Intent) {
+        val device = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE, BluetoothDevice::class.java)
+        } else {
+            @Suppress("DEPRECATION")
+            intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE)
+        }
+        if (intent.action == BluetoothDevice.ACTION_ACL_DISCONNECTED) {
+            device?.address?.let { connectedBluetoothAddresses.remove(it) }
+            return
+        }
         if (intent.action == BluetoothDevice.ACTION_ACL_CONNECTED) {
+            device?.address?.let { connectedBluetoothAddresses.add(it) }
             if (isBluetoothAutoPlayEnabled()) resumeLastStation()
+            maybeAutoPlayForChargeAndBluetooth()
             
             if (isBluetoothAutoOpenEnabled()) ScreensaverLauncher.launch(context.applicationContext)
         }
@@ -132,6 +145,7 @@ class PlaybackService : MediaSessionService() {
         powerReceiverRegistered = true
         refreshBluetoothReceiver()
         if (isCharging) resumeForPowerConnection()
+        maybeAutoPlayForChargeAndBluetooth()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -209,6 +223,7 @@ class PlaybackService : MediaSessionService() {
 
     internal fun onPowerConnected() {
         isCharging = true
+        maybeAutoPlayForChargeAndBluetooth()
         updateMonitorNotification(mediaSession?.player?.isPlaying == true)
     }
 
@@ -228,10 +243,47 @@ class PlaybackService : MediaSessionService() {
             ?: (getSystemService(BatteryManager::class.java)?.isCharging == true)
     }
 
+    private fun isChargeBluetoothPlayEnabled(): Boolean {
+        if (!getAutomationPreference(CHARGE_BLUETOOTH_PLAY, false)) return false
+        return Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||
+            checkSelfPermission(android.Manifest.permission.BLUETOOTH_CONNECT) ==
+            PackageManager.PERMISSION_GRANTED
+    }
+
+    private fun currentlyConnectedBluetoothAddresses(): Set<String> {
+        val result = connectedBluetoothAddresses.toMutableSet()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            getSystemService(android.media.AudioManager::class.java)
+                ?.getDevices(android.media.AudioManager.GET_DEVICES_OUTPUTS)
+                ?.filter {
+                    it.type == android.media.AudioDeviceInfo.TYPE_BLUETOOTH_A2DP ||
+                        it.type == android.media.AudioDeviceInfo.TYPE_BLUETOOTH_SCO
+                }
+                ?.forEach { result.add(it.address) }
+        }
+        return result
+    }
+
+    // Plays only while charging and connected to one of the user-selected devices.
+    private fun maybeAutoPlayForChargeAndBluetooth() {
+        if (!isChargeBluetoothPlayEnabled() || !isCharging) return
+        val selected = getSharedPreferences(AUTOMATION_PREFERENCES, MODE_PRIVATE)
+            .getStringSet(CHARGE_BLUETOOTH_DEVICES, emptySet()).orEmpty()
+        if (selected.isEmpty()) return
+        val connected = currentlyConnectedBluetoothAddresses()
+        if (selected.any { saved -> connected.any { it.equals(saved, ignoreCase = true) } }) {
+            resumeLastStation()
+        }
+    }
+
     private fun refreshBluetoothReceiver() {
-    val shouldRegister = isBluetoothAutoPlayEnabled() || isBluetoothAutoOpenEnabled()
+    val shouldRegister = isBluetoothAutoPlayEnabled() || isBluetoothAutoOpenEnabled() || isChargeBluetoothPlayEnabled()
     if (shouldRegister && !bluetoothReceiverRegistered) {
-        ContextCompat.registerReceiver(this, bluetoothReceiver, IntentFilter(BluetoothDevice.ACTION_ACL_CONNECTED), ContextCompat.RECEIVER_EXPORTED)
+        val filter = IntentFilter().apply {
+            addAction(BluetoothDevice.ACTION_ACL_CONNECTED)
+            addAction(BluetoothDevice.ACTION_ACL_DISCONNECTED)
+        }
+        ContextCompat.registerReceiver(this, bluetoothReceiver, filter, ContextCompat.RECEIVER_EXPORTED)
         bluetoothReceiverRegistered = true
     } else if (!shouldRegister && bluetoothReceiverRegistered) {
         unregisterReceiver(bluetoothReceiver)
@@ -633,6 +685,8 @@ class PlaybackService : MediaSessionService() {
         const val STOP_ON_UNPLUG = "stop_on_unplug"
         const val AUTO_PLAY_ON_BLUETOOTH = "auto_play_on_bluetooth"
         const val AUTO_OPEN_ON_BLUETOOTH = "auto_open_on_bluetooth"
+        const val CHARGE_BLUETOOTH_PLAY = "charge_bluetooth_play"
+        const val CHARGE_BLUETOOTH_DEVICES = "charge_bluetooth_devices"
         const val CHARGE_SCREENSAVER = "charge_screensaver"
         const val STOP_ONLY_ON_UNPLUG = "stop_only_on_unplug"
         private const val STATION_SUGGESTION_ENDPOINT =
