@@ -85,10 +85,12 @@ class PlaybackService : MediaSessionService() {
     private val bluetoothAutoPlayDevices = mutableSetOf<String>()
     private val eligibleBluetoothAddresses = mutableSetOf<String>()
     private var screensaverOpenedByPlayback = false
+    private var screensaverReturnToPrevious = false
+    private var screensaverScreenWasOff = false
     private val screensaverCloseRunnable: Runnable = Runnable {
         if (screensaverOpenedByPlayback && mediaSession?.player?.isPlaying != true) {
             screensaverOpenedByPlayback = false
-            MainActivity.dispatchScreensaverOff()
+            MainActivity.dispatchScreensaverOff(screensaverReturnToPrevious, screensaverScreenWasOff)
         }
     }
 
@@ -100,6 +102,10 @@ class PlaybackService : MediaSessionService() {
         if (isPlaying) {
             if (!screensaverOpenedByPlayback && hasEligibleBluetoothConnection()) {
                 screensaverOpenedByPlayback = true
+                // If our app was already on screen, stay in it; otherwise go back to what was there.
+                screensaverReturnToPrevious = !MainActivity.isVisible()
+                // Screen was off (lock screen / always-on display): switch it off again at the end.
+                screensaverScreenWasOff = getSystemService(android.os.PowerManager::class.java)?.isInteractive == false
                 ScreensaverLauncher.launch(applicationContext)
             }
         } else if (screensaverOpenedByPlayback) {
