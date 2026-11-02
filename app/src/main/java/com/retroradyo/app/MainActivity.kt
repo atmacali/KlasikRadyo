@@ -179,7 +179,7 @@ override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out
         pendingBluetoothPermissionKey?.let { key ->
             setAutomationPreference(key, true)
             refreshBluetoothMonitor()
-            if (key == AUTO_OPEN_ON_BLUETOOTH) requestLaunchPermission()
+            if (key == AUTO_OPEN_ON_BLUETOOTH || key == BLUETOOTH_PLAY_SCREENSAVER) requestLaunchPermission()
         } ?: run {
             if (pendingBluetoothPermissionRequest) {
                 setAutomationPreference(AUTO_PLAY_ON_BLUETOOTH, true)
@@ -700,6 +700,23 @@ fun getAutoStartOnBootEnabled(): Boolean = getAutomationPreference(AUTO_START_ON
     }
 
         @JavascriptInterface
+        fun getBluetoothPlayScreensaverEnabled(): Boolean =
+            getAutomationPreference(BLUETOOTH_PLAY_SCREENSAVER, false) && hasBluetoothConnectPermission()
+
+        @JavascriptInterface
+        fun setBluetoothPlayScreensaverEnabled(enabled: Boolean): Boolean {
+            if (enabled && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !hasBluetoothConnectPermission()) {
+                pendingBluetoothPermissionKey = BLUETOOTH_PLAY_SCREENSAVER
+                runOnUiThread { requestPermissions(arrayOf(android.Manifest.permission.BLUETOOTH_CONNECT), REQUEST_BLUETOOTH_CONNECT) }
+                return false
+            }
+            setAutomationPreference(BLUETOOTH_PLAY_SCREENSAVER, enabled)
+            refreshBluetoothMonitor()
+            if (enabled) requestLaunchPermission()
+            return true
+        }
+
+        @JavascriptInterface
         fun setStopOnlyOnUnplugEnabled(enabled: Boolean) {
             setAutomationPreference(STOP_ONLY_ON_UNPLUG, enabled)
         }
@@ -995,6 +1012,7 @@ fun getAutoStartOnBootEnabled(): Boolean = getAutomationPreference(AUTO_START_ON
         // YENİ EKLENEN SABİT
         private const val AUTO_START_ON_BOOT = "auto_start_on_boot"
         private const val AUTO_OPEN_ON_BLUETOOTH = "auto_open_on_bluetooth"
+        private const val BLUETOOTH_PLAY_SCREENSAVER = "bluetooth_play_screensaver"
         private const val CHARGE_BLUETOOTH_PLAY = "charge_bluetooth_play"
         private const val CHARGE_BLUETOOTH_DEVICES = "charge_bluetooth_devices"
         private const val UPDATE_PREFERENCES = "update_state"
@@ -1037,6 +1055,16 @@ fun getAutoStartOnBootEnabled(): Boolean = getAutomationPreference(AUTO_START_ON
                 if (!activity.isFinishing && !activity.isDestroyed) activity.handleOpenScreensaver()
             }
             return true
+        }
+
+        fun dispatchScreensaverOff() {
+            val activity = synchronized(foregroundActivityLock) { foregroundActivity } ?: return
+            if (activity.isFinishing || activity.isDestroyed) return
+            activity.runOnUiThread {
+                if (!activity.isFinishing && !activity.isDestroyed && activity.pageReady) {
+                    activity.webView.evaluateJavascript("toggleScreensaver(false)", null)
+                }
+            }
         }
 
         fun dispatchStationUploadStatus(message: String, isError: Boolean) {

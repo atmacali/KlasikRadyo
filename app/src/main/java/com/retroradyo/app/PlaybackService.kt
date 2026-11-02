@@ -55,6 +55,7 @@ class PlaybackService : MediaSessionService() {
         if (intent.action == BluetoothDevice.ACTION_ACL_DISCONNECTED) {
             device?.address?.let { address ->
                 connectedBluetoothAddresses.remove(address)
+                eligibleBluetoothAddresses.remove(address)
                 if (bluetoothAutoPlayDevices.remove(address)) stopPlayback()
                 stopIfChargeBluetoothLost(excludedAddress = address)
             }
@@ -63,6 +64,9 @@ class PlaybackService : MediaSessionService() {
         if (intent.action == BluetoothDevice.ACTION_ACL_CONNECTED) {
             val address = device?.address
             address?.let { connectedBluetoothAddresses.add(it) }
+            if (address != null && BluetoothDeviceFilter.isEligible(context, device)) {
+                eligibleBluetoothAddresses.add(address)
+            }
             if (isBluetoothAutoPlayEnabled() && BluetoothDeviceFilter.isEligible(context, device)) {
                 address?.let { bluetoothAutoPlayDevices.add(it) }
                 resumeLastStation()
@@ -79,6 +83,42 @@ class PlaybackService : MediaSessionService() {
     }
 }
     private val bluetoothAutoPlayDevices = mutableSetOf<String>()
+    private val eligibleBluetoothAddresses = mutableSetOf<String>()
+    private var screensaverOpenedByPlayback = false
+    private val screensaverCloseRunnable: Runnable = Runnable {
+        if (screensaverOpenedByPlayback && mediaSession?.player?.isPlaying != true) {
+            screensaverOpenedByPlayback = false
+            MainActivity.dispatchScreensaverOff()
+        }
+    }
+
+    // Opens AMOLED mode when playback starts over an eligible Bluetooth device and closes it
+    // (after a short debounce for rebuffering) when playback stops, without waiting for disconnect.
+    private fun handleScreensaverForPlayback(isPlaying: Boolean) {
+        if (!isBluetoothPlayScreensaverEnabled()) return
+        mainHandler.removeCallbacks(screensaverCloseRunnable)
+        if (isPlaying) {
+            if (!screensaverOpenedByPlayback && hasEligibleBluetoothConnection()) {
+                screensaverOpenedByPlayback = true
+                ScreensaverLauncher.launch(applicationContext)
+            }
+        } else if (screensaverOpenedByPlayback) {
+            mainHandler.postDelayed(screensaverCloseRunnable, SCREENSAVER_CLOSE_DELAY_MS)
+        }
+    }
+
+    private fun hasEligibleBluetoothConnection(): Boolean {
+        if (eligibleBluetoothAddresses.isNotEmpty()) return true
+        val excluded = BluetoothDeviceFilter.excludedAddresses(this)
+        return currentlyConnectedBluetoothAddresses().any { it !in excluded && it !in connectedBluetoothAddresses }
+    }
+
+    private fun isBluetoothPlayScreensaverEnabled(): Boolean {
+        if (!getAutomationPreference(BLUETOOTH_PLAY_SCREENSAVER, false)) return false
+        return Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||
+            checkSelfPermission(android.Manifest.permission.BLUETOOTH_CONNECT) ==
+            PackageManager.PERMISSION_GRANTED
+    }
     private var chargeBluetoothActive = false
     private var retryAttempt = 0
     private var retryCondition: (() -> Boolean)? = null
@@ -166,6 +206,7 @@ class PlaybackService : MediaSessionService() {
         override fun onIsPlayingChanged(isPlaying: Boolean) {
             updateMonitorNotification(isPlaying, startForeground = true)
             if (isPlaying) submitCurrentStationIfPending()
+            handleScreensaverForPlayback(isPlaying)
         }
 
         override fun onVolumeChanged(volume: Float) {
@@ -349,7 +390,7 @@ class PlaybackService : MediaSessionService() {
     }
 
     private fun refreshBluetoothReceiver() {
-    val shouldRegister = isBluetoothAutoPlayEnabled() || isBluetoothAutoOpenEnabled() || isChargeBluetoothPlayEnabled()
+    val shouldRegister = isBluetoothAutoPlayEnabled() || isBluetoothAutoOpenEnabled() || isChargeBluetoothPlayEnabled() || isBluetoothPlayScreensaverEnabled()
     if (shouldRegister && !bluetoothReceiverRegistered) {
         val filter = IntentFilter().apply {
             addAction(BluetoothDevice.ACTION_ACL_CONNECTED)
@@ -717,6 +758,7 @@ class PlaybackService : MediaSessionService() {
     override fun onDestroy() {
         mainHandler.removeCallbacks(retryRunnable)
         mainHandler.removeCallbacks(chargeLossRunnable)
+        mainHandler.removeCallbacks(screensaverCloseRunnable)
         if (bluetoothReceiverRegistered) {
             unregisterReceiver(bluetoothReceiver)
             bluetoothReceiverRegistered = false
@@ -761,6 +803,8 @@ class PlaybackService : MediaSessionService() {
         const val STOP_ON_UNPLUG = "stop_on_unplug"
         const val AUTO_PLAY_ON_BLUETOOTH = "auto_play_on_bluetooth"
         const val AUTO_OPEN_ON_BLUETOOTH = "auto_open_on_bluetooth"
+        const val BLUETOOTH_PLAY_SCREENSAVER = "bluetooth_play_screensaver"
+        const val SCREENSAVER_CLOSE_DELAY_MS = 3_000L
         const val CHARGE_BLUETOOTH_PLAY = "charge_bluetooth_play"
         const val CHARGE_BLUETOOTH_DEVICES = "charge_bluetooth_devices"
         const val CHARGE_SCREENSAVER = "charge_screensaver"

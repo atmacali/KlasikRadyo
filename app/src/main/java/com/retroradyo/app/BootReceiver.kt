@@ -15,6 +15,7 @@ class BootReceiver : BroadcastReceiver() {
         val prefs = context.getSharedPreferences("radio_automation", Context.MODE_PRIVATE)
         val autoStartOnBoot = prefs.getBoolean("auto_start_on_boot", false)
         val bluetoothMonitor = prefs.getBoolean("auto_open_on_bluetooth", false) ||
+            prefs.getBoolean("bluetooth_play_screensaver", false) ||
             prefs.getBoolean("auto_play_on_bluetooth", false) ||
             prefs.getBoolean("charge_bluetooth_play", false)
         if (!autoStartOnBoot && !bluetoothMonitor) return
