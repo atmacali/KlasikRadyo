@@ -142,7 +142,28 @@
             flex: 0 0 auto;
             accent-color: #aaa;
         }
+        .settings-options { gap: 8px; }
+        .settings-group, .settings-sub {
+            border: 1px solid #2d2d2d;
+            border-radius: 10px;
+            background: #0b0b0b;
+        }
+        .settings-sub { margin: 8px 0; }
+        .settings-group > summary, .settings-sub > summary {
+            padding: 13px 14px;
+            color: #ccc;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            cursor: pointer;
+        }
+        .settings-sub > summary { font-weight: 400; letter-spacing: 0; font-size: 13px; }
+        .settings-group-body { padding: 0 12px 10px; }
+        .settings-group-body > .setting-row:first-child { border-top: 0; }
+        .device-list { max-height: 240px; overflow-y: auto; padding: 0 10px 6px; -webkit-overflow-scrolling: touch; }
+        .device-list .setting-row { min-height: 44px; }
         .catalog-actions { display: grid; gap: 9px; padding-top: 12px; }
+        .settings-group-body > .catalog-actions { padding-bottom: 4px; }
         .catalog-status { min-height: 18px; margin: 0; color: #aaa; font-size: 12px; line-height: 1.4; }
         .catalog-source { margin: 0; color: #777; font-size: 10px; overflow-wrap: anywhere; }
         .archived-stations {
@@ -409,57 +430,99 @@
             <div class="archived-list" id="archivedStationsList"></div>
         </details>
         <details class="settings-menu">
-            <summary>MENÜ · AYARLAR</summary>
+            <summary id="settingsMenuSummary">MENÜ · AYARLAR</summary>
             <div class="settings-options">
-                <label class="setting-row" for="chargeStartSetting">
-                    <span>Şarja takılınca radyoyu başlat</span>
-                    <input id="chargeStartSetting" type="checkbox">
-                </label>
-                <label class="setting-row" for="unplugStopSetting">
-                    <span>Şarjdan çıkarınca durdur ve ekranı kapat</span>
-                    <input id="unplugStopSetting" type="checkbox">
-                </label>
-                <label class="setting-row" for="unplugStopOnlySetting">
-                    <span>Şarjdan çıkarınca sadece durdur (Amoled ekran kalsın)</span>
-                    <input id="unplugStopOnlySetting" type="checkbox">
-                </label>
-                <label class="setting-row" for="bluetoothPlaySetting">
-                    <span>Bluetooth bağlanınca son radyoyu çal</span>
-                    <input id="bluetoothPlaySetting" type="checkbox">
-                </label>
-                <label class="setting-row" for="chargeScreensaverSetting">
-                    <span>Şarja takılınca AMOLED ekran koruyucuyu aç</span>
-                    <input id="chargeScreensaverSetting" type="checkbox">
-                </label>
-                <label class="setting-row" for="reorderStationsSetting">
-                    <span>Kanal sırasını düzenle</span>
-                    <input id="reorderStationsSetting" type="checkbox">
-                </label>
-                <label class="setting-row" for="keepScreenOnAlwaysSetting">
-                    <span>Radyo çalışırken AMOLED ekranını daima açık tut</span>
-                    <input id="keepScreenOnAlwaysSetting" type="checkbox">
-                </label>
-                <label class="setting-row" for="autoStartOnBootSetting">
-                    <span>Telefon açıldığında radyoyu başlat</span>
-                    <input id="autoStartOnBootSetting" type="checkbox">
-                </label>
-                <label class="setting-row" for="bluetoothOpenSetting">
-                <span>Bluetooth bağlanınca arayüzü aç</span>
-                <input id="bluetoothOpenSetting" type="checkbox">
-                </label>
-                <label class="setting-row" for="chargeBluetoothSetting">
-                    <span>Şarjdayken seçili Bluetooth cihaza bağlanınca radyoyu çal</span>
-                    <input id="chargeBluetoothSetting" type="checkbox">
-                </label>
-                <div id="chargeBluetoothDevices" hidden></div>
-            </div>
-            <div class="catalog-actions">
-                <button class="btn btn-primary" type="button" onclick="openModal()">＋ İSTASYON EKLE</button>
-                <button class="btn btn-stop" type="button" onclick="stopRadio()">DURDUR</button>
-                <button class="btn" type="button" onclick="openRestoreModal()">VARSAYILANLARI GERİ YÜKLE</button>
-                <button class="btn" type="button" onclick="fetchStationCatalog()">KANAL LİSTESİNİ GÜNCELLE</button>
-                <p class="catalog-source">Kaynak: atmacali/KlasikRadyo · stations.json</p>
-                <p class="catalog-status" id="catalogStatus" role="status">Ortak kanal listesi gerektiğinde yenilenebilir.</p>
+                <details class="settings-group">
+                    <summary>ŞARJ OTOMASYONU</summary>
+                    <div class="settings-group-body">
+                        <label class="setting-row" for="chargeStartSetting">
+                            <span>Şarja takılınca radyoyu başlat</span>
+                            <input id="chargeStartSetting" type="checkbox">
+                        </label>
+                        <label class="setting-row" for="chargeScreensaverSetting">
+                            <span>Şarja takılınca AMOLED ekran koruyucuyu aç</span>
+                            <input id="chargeScreensaverSetting" type="checkbox">
+                        </label>
+                        <label class="setting-row" for="unplugStopSetting">
+                            <span>Şarjdan çıkarınca durdur ve ekranı kapat</span>
+                            <input id="unplugStopSetting" type="checkbox">
+                        </label>
+                        <label class="setting-row" for="unplugStopOnlySetting">
+                            <span>Şarjdan çıkarınca sadece durdur (Amoled ekran kalsın)</span>
+                            <input id="unplugStopOnlySetting" type="checkbox">
+                        </label>
+                    </div>
+                </details>
+                <details class="settings-group">
+                    <summary>BLUETOOTH OTOMASYONU</summary>
+                    <div class="settings-group-body">
+                        <label class="setting-row" for="bluetoothPlaySetting">
+                            <span>Bluetooth bağlanınca son radyoyu çal</span>
+                            <input id="bluetoothPlaySetting" type="checkbox">
+                        </label>
+                        <label class="setting-row" for="bluetoothOpenSetting">
+                            <span>Bluetooth bağlanınca arayüzü aç</span>
+                            <input id="bluetoothOpenSetting" type="checkbox">
+                        </label>
+                        <label class="setting-row" for="ignoreNonAudioSetting">
+                            <span>Hoparlörü olmayan cihazlar (saat, bileklik vb.) tetiklemesin</span>
+                            <input id="ignoreNonAudioSetting" type="checkbox">
+                        </label>
+                        <details class="settings-sub" id="btExclusionsGroup">
+                            <summary id="btExclusionsSummary">Kapsam dışı cihazlar</summary>
+                            <div class="device-list" id="btExclusionsList"></div>
+                        </details>
+                        <label class="setting-row" for="chargeBluetoothSetting">
+                            <span>Şarjdayken seçili Bluetooth cihaza bağlanınca radyoyu çal</span>
+                            <input id="chargeBluetoothSetting" type="checkbox">
+                        </label>
+                        <details class="settings-sub" id="chargeBluetoothGroup" hidden>
+                            <summary id="chargeBluetoothSummary">Seçili cihazlar</summary>
+                            <div class="device-list" id="chargeBluetoothDevices"></div>
+                        </details>
+                    </div>
+                </details>
+                <details class="settings-group">
+                    <summary>EKRAN VE BAŞLATMA</summary>
+                    <div class="settings-group-body">
+                        <label class="setting-row" for="keepScreenOnAlwaysSetting">
+                            <span>Radyo çalışırken AMOLED ekranını daima açık tut</span>
+                            <input id="keepScreenOnAlwaysSetting" type="checkbox">
+                        </label>
+                        <label class="setting-row" for="autoStartOnBootSetting">
+                            <span>Telefon açıldığında radyoyu başlat</span>
+                            <input id="autoStartOnBootSetting" type="checkbox">
+                        </label>
+                    </div>
+                </details>
+                <details class="settings-group">
+                    <summary>KANALLAR</summary>
+                    <div class="settings-group-body">
+                        <label class="setting-row" for="reorderStationsSetting">
+                            <span>Kanal sırasını düzenle</span>
+                            <input id="reorderStationsSetting" type="checkbox">
+                        </label>
+                        <div class="catalog-actions">
+                            <button class="btn btn-primary" type="button" onclick="openModal()">＋ İSTASYON EKLE</button>
+                            <button class="btn btn-stop" type="button" onclick="stopRadio()">DURDUR</button>
+                            <button class="btn" type="button" onclick="openRestoreModal()">VARSAYILANLARI GERİ YÜKLE</button>
+                            <button class="btn" type="button" onclick="fetchStationCatalog()">KANAL LİSTESİNİ GÜNCELLE</button>
+                            <p class="catalog-source">Kaynak: atmacali/KlasikRadyo · stations.json</p>
+                            <p class="catalog-status" id="catalogStatus" role="status">Ortak kanal listesi gerektiğinde yenilenebilir.</p>
+                        </div>
+                    </div>
+                </details>
+                <details class="settings-group" id="updateGroup">
+                    <summary id="updateGroupSummary">UYGULAMA GÜNCELLEMESİ</summary>
+                    <div class="settings-group-body">
+                        <div class="catalog-actions">
+                            <p class="catalog-source" id="updateVersion"></p>
+                            <button class="btn" type="button" id="updateCheckBtn">GÜNCELLEMEYİ DENETLE</button>
+                            <button class="btn btn-primary" type="button" id="updateInstallBtn" hidden>İNDİR VE KUR</button>
+                            <p class="catalog-status" id="updateStatus" role="status">Güncellemeler GitHub sürümlerinden alınır.</p>
+                        </div>
+                    </div>
+                </details>
             </div>
         </details>
     </main>
@@ -1203,42 +1266,127 @@
         if (autoOpenBluetoothEl) autoOpenBluetoothEl.checked = Boolean(autoOpenBluetooth);
     }
 
-    function renderChargeBluetoothDevices() {
-        const box = document.getElementById('chargeBluetoothDevices');
-        const bridge = window.AndroidBridge;
-        if (!box || !bridge || typeof bridge.getPairedBluetoothDevicesJson !== 'function') return;
-        const enabled = document.getElementById('chargeBluetoothSetting').checked;
-        box.hidden = !enabled;
+    function renderDeviceCheckboxes(box, summary, baseTitle, devices, isChecked, label, onSave) {
         box.replaceChildren();
-        if (!enabled) return;
-        let devices = [];
-        try { devices = JSON.parse(bridge.getPairedBluetoothDevicesJson()); } catch {}
         if (!devices.length) {
             box.textContent = 'Eşleşmiş Bluetooth cihaz bulunamadı.';
+            summary.textContent = baseTitle;
             return;
         }
-        const save = () => {
-            const selected = [...box.querySelectorAll('input:checked')].map(input => input.value);
-            bridge.setChargeBluetoothDevices(JSON.stringify(selected));
+        const updateCount = () => {
+            const count = box.querySelectorAll('input:checked').length;
+            summary.textContent = `${baseTitle} (${count}/${devices.length})`;
         };
         devices.forEach(device => {
             const row = document.createElement('label');
             row.className = 'setting-row';
             const name = document.createElement('span');
-            name.textContent = device.name;
+            name.textContent = label(device);
             const input = document.createElement('input');
             input.type = 'checkbox';
             input.value = device.address;
-            input.checked = Boolean(device.selected);
-            input.addEventListener('change', save);
+            input.checked = isChecked(device);
+            input.addEventListener('change', () => {
+                updateCount();
+                onSave([...box.querySelectorAll('input:checked')].map(item => item.value));
+            });
             row.append(name, input);
             box.append(row);
         });
+        updateCount();
+    }
+
+    function renderChargeBluetoothDevices() {
+        const box = document.getElementById('chargeBluetoothDevices');
+        const group = document.getElementById('chargeBluetoothGroup');
+        const summary = document.getElementById('chargeBluetoothSummary');
+        const bridge = window.AndroidBridge;
+        if (!box || !group || !summary || !bridge || typeof bridge.getPairedBluetoothDevicesJson !== 'function') return;
+        const enabled = document.getElementById('chargeBluetoothSetting').checked;
+        group.hidden = !enabled;
+        box.replaceChildren();
+        if (!enabled) return;
+        let devices = [];
+        try { devices = JSON.parse(bridge.getPairedBluetoothDevicesJson()); } catch {}
+        renderDeviceCheckboxes(
+            box, summary, 'Seçili cihazlar', devices,
+            device => Boolean(device.selected),
+            device => device.name,
+            selected => bridge.setChargeBluetoothDevices(JSON.stringify(selected))
+        );
+    }
+
+    function renderBluetoothExclusions() {
+        const box = document.getElementById('btExclusionsList');
+        const summary = document.getElementById('btExclusionsSummary');
+        const bridge = window.AndroidBridge;
+        if (!box || !summary || !bridge || typeof bridge.getBluetoothExclusionsJson !== 'function') return;
+        let devices = [];
+        try { devices = JSON.parse(bridge.getBluetoothExclusionsJson()); } catch {}
+        renderDeviceCheckboxes(
+            box, summary, 'Kapsam dışı cihazlar', devices,
+            device => Boolean(device.excluded),
+            device => device.name + (device.audio ? '' : ' (ses cihazı değil)'),
+            excluded => bridge.setBluetoothExcludedDevices(JSON.stringify(excluded))
+        );
+    }
+
+    function setupBluetoothExclusions() {
+        const bridge = window.AndroidBridge;
+        const group = document.getElementById('btExclusionsGroup');
+        const ignoreEl = document.getElementById('ignoreNonAudioSetting');
+        if (!bridge || !group || !ignoreEl || typeof bridge.getIgnoreNonAudioBluetooth !== 'function') return;
+        ignoreEl.checked = Boolean(bridge.getIgnoreNonAudioBluetooth());
+        ignoreEl.addEventListener('change', event => bridge.setIgnoreNonAudioBluetooth(event.target.checked));
+        renderBluetoothExclusions();
+        group.addEventListener('toggle', () => { if (group.open) renderBluetoothExclusions(); });
+    }
+
+    let updateAvailable = false;
+
+    function setUpdateStatus(text) {
+        const el = document.getElementById('updateStatus');
+        if (el) el.textContent = text;
+    }
+
+    function onUpdateEvent(json) {
+        let event;
+        try { event = JSON.parse(json); } catch { return; }
+        const installBtn = document.getElementById('updateInstallBtn');
+        const checkBtn = document.getElementById('updateCheckBtn');
+        const summary = document.getElementById('updateGroupSummary');
+        const menuSummary = document.getElementById('settingsMenuSummary');
+        const busy = event.state === 'checking' || event.state === 'downloading' || event.state === 'installing';
+        if (checkBtn) checkBtn.disabled = busy;
+        if (installBtn) installBtn.disabled = busy;
+        if (event.state === 'available') {
+            updateAvailable = true;
+            if (installBtn) installBtn.hidden = false;
+        } else if (event.state === 'upToDate') {
+            updateAvailable = false;
+            if (installBtn) installBtn.hidden = true;
+        }
+        if (summary) summary.textContent = updateAvailable ? 'UYGULAMA GÜNCELLEMESİ ●' : 'UYGULAMA GÜNCELLEMESİ';
+        if (menuSummary) menuSummary.textContent = updateAvailable ? 'MENÜ · AYARLAR ●' : 'MENÜ · AYARLAR';
+        if (event.message) setUpdateStatus(event.message);
+    }
+
+    function setupUpdateSettings() {
+        const bridge = window.AndroidBridge;
+        const checkBtn = document.getElementById('updateCheckBtn');
+        const installBtn = document.getElementById('updateInstallBtn');
+        if (!bridge || !checkBtn || !installBtn || typeof bridge.checkForUpdate !== 'function') return;
+        const versionEl = document.getElementById('updateVersion');
+        if (versionEl) versionEl.textContent = `Yüklü sürüm: ${bridge.getAppVersionName()}`;
+        checkBtn.addEventListener('click', () => bridge.checkForUpdate(false));
+        installBtn.addEventListener('click', () => bridge.downloadAndInstallUpdate());
     }
 
     function setupAutomationSettings() {
         const bridge = window.AndroidBridge;
         if (!bridge) return;
+        setupBluetoothExclusions();
+        setupUpdateSettings();
         
         applyAutomationSettingsFromNative(
             bridge.getAutoStartOnChargeEnabled(),

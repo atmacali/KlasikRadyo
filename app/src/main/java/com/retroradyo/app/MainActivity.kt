@@ -133,6 +133,7 @@ class MainActivity : Activity() {
                     syncPlaybackStateToWebView()
                     syncVolumeToWebView()
                     syncAutomationSettingsToWebView()
+                    maybeAutoCheckForUpdate()
                     if (pendingPowerAction != null) {
                         runPendingPowerAction()
                     } else {
@@ -261,6 +262,114 @@ override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out
             ?.requestDismissKeyguard(this, null)
     }
 
+    @Volatile
+    private var availableUpdate: UpdateManager.Release? = null
+    private val updateBusy = java.util.concurrent.atomic.AtomicBoolean(false)
+
+    private fun sendUpdateEvent(state: String, message: String? = null) {
+        val payload = org.json.JSONObject().put("state", state)
+        if (message != null) payload.put("message", message)
+        runOnUiThread {
+            if (::webView.isInitialized && pageReady) {
+                webView.evaluateJavascript(
+                    "onUpdateEvent(${org.json.JSONObject.quote(payload.toString())})",
+                    null
+                )
+            }
+        }
+    }
+
+    private fun maybeAutoCheckForUpdate() {
+        val preferences = getSharedPreferences(UPDATE_PREFERENCES, MODE_PRIVATE)
+        val now = System.currentTimeMillis()
+        if (now - preferences.getLong(LAST_UPDATE_CHECK_KEY, 0L) < UPDATE_CHECK_INTERVAL_MS) return
+        preferences.edit().putLong(LAST_UPDATE_CHECK_KEY, now).apply()
+        startUpdateCheck(silent = true)
+    }
+
+    private fun startUpdateCheck(silent: Boolean) {
+        if (!updateBusy.compareAndSet(false, true)) return
+        if (!silent) sendUpdateEvent("checking", "Güncelleme denetleniyor…")
+        Thread {
+            try {
+                val release = UpdateManager.fetchLatest()
+                val installed = UpdateManager.installedVersionCode(this)
+                if (release != null && release.versionCode > installed) {
+                    availableUpdate = release
+                    sendUpdateEvent("available", "Yeni sürüm var: ${release.versionCode} (yüklü: $installed)")
+                } else if (!silent) {
+                    sendUpdateEvent("upToDate", "Uygulama güncel.")
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                if (!silent) sendUpdateEvent("error", "Denetlenemedi: ${e.message ?: "bağlantı hatası"}")
+            } finally {
+                updateBusy.set(false)
+            }
+        }.start()
+    }
+
+    private fun startUpdateDownload() {
+        val release = availableUpdate ?: return
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !packageManager.canRequestPackageInstalls()) {
+            sendUpdateEvent("permission", "Bu uygulamaya \"bilinmeyen uygulamaları yükleme\" izni verip geri dönün, sonra tekrar basın.")
+            runOnUiThread {
+                try {
+                    startActivity(
+                        Intent(
+                            android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                            Uri.parse("package:$packageName")
+                        )
+                    )
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+            return
+        }
+        if (!updateBusy.compareAndSet(false, true)) return
+        sendUpdateEvent("downloading", "İndiriliyor… %0")
+        Thread {
+            try {
+                val file = UpdateManager.download(this, release) { percent ->
+                    sendUpdateEvent("downloading", "İndiriliyor… %$percent")
+                }
+                sendUpdateEvent("installing", "Kurulum ekranı açılıyor…")
+                runOnUiThread {
+                    try {
+                        startActivity(UpdateManager.installIntent(this, file))
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                        sendUpdateEvent("available", "Kurulum başlatılamadı: ${e.message}")
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                sendUpdateEvent("available", "İndirilemedi: ${e.message ?: "bağlantı hatası"}")
+            } finally {
+                updateBusy.set(false)
+            }
+        }.start()
+    }
+
+    @android.annotation.SuppressLint("BatteryLife")
+    private fun requestBatteryExemption() {
+        val power = getSystemService(android.os.PowerManager::class.java) ?: return
+        if (power.isIgnoringBatteryOptimizations(packageName)) return
+        runOnUiThread {
+            try {
+                startActivity(
+                    Intent(
+                        android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+                        android.net.Uri.parse("package:$packageName")
+                    )
+                )
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
     private fun requestLaunchPermission() {
         val isXiaomi = Build.MANUFACTURER.equals("xiaomi", true) ||
             Build.MANUFACTURER.equals("redmi", true) || Build.MANUFACTURER.equals("poco", true)
@@ -274,6 +383,7 @@ override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out
             }
             return
         }
+        requestBatteryExemption()
         if (!isXiaomi) return
         runOnUiThread {
             try {
@@ -475,6 +585,7 @@ fun setChargeBluetoothPlayEnabled(enabled: Boolean): Boolean {
     }
     setAutomationPreference(CHARGE_BLUETOOTH_PLAY, enabled)
     refreshBluetoothMonitor()
+    if (enabled) requestBatteryExemption()
     return true
 }
 
@@ -506,6 +617,61 @@ fun setChargeBluetoothDevices(addressesJson: String) {
     val addresses = (0 until array.length()).map { array.getString(it) }.toSet()
     getSharedPreferences(AUTOMATION_PREFERENCES, MODE_PRIVATE)
         .edit().putStringSet(CHARGE_BLUETOOTH_DEVICES, addresses).apply()
+}
+
+@JavascriptInterface
+fun getBluetoothExclusionsJson(): String {
+    val result = org.json.JSONArray()
+    if (!hasBluetoothConnectPermission()) return result.toString()
+    val excluded = BluetoothDeviceFilter.excludedAddresses(this)
+    try {
+        getSystemService(android.bluetooth.BluetoothManager::class.java)
+            ?.adapter?.bondedDevices?.sortedBy { it.name ?: it.address }?.forEach { device ->
+                result.put(
+                    org.json.JSONObject()
+                        .put("name", device.name ?: device.address)
+                        .put("address", device.address)
+                        .put("excluded", device.address in excluded)
+                        .put("audio", BluetoothDeviceFilter.isAudioOutput(device))
+                )
+            }
+    } catch (e: SecurityException) {
+        e.printStackTrace()
+    }
+    return result.toString()
+}
+
+@JavascriptInterface
+fun setBluetoothExcludedDevices(addressesJson: String) {
+    val array = org.json.JSONArray(addressesJson)
+    val addresses = (0 until array.length()).map { array.getString(it) }.toSet()
+    getSharedPreferences(AUTOMATION_PREFERENCES, MODE_PRIVATE)
+        .edit().putStringSet(BluetoothDeviceFilter.EXCLUDED_DEVICES, addresses).apply()
+}
+
+@JavascriptInterface
+fun getIgnoreNonAudioBluetooth(): Boolean = BluetoothDeviceFilter.ignoreNonAudio(this)
+
+@JavascriptInterface
+fun setIgnoreNonAudioBluetooth(enabled: Boolean) {
+    setAutomationPreference(BluetoothDeviceFilter.IGNORE_NON_AUDIO, enabled)
+}
+
+@JavascriptInterface
+fun getAppVersionName(): String = try {
+    "${UpdateManager.installedVersionName(this@MainActivity)} (${UpdateManager.installedVersionCode(this@MainActivity)})"
+} catch (e: Exception) {
+    ""
+}
+
+@JavascriptInterface
+fun checkForUpdate(silent: Boolean) {
+    startUpdateCheck(silent)
+}
+
+@JavascriptInterface
+fun downloadAndInstallUpdate() {
+    startUpdateDownload()
 }
 
 @JavascriptInterface
@@ -831,6 +997,9 @@ fun getAutoStartOnBootEnabled(): Boolean = getAutomationPreference(AUTO_START_ON
         private const val AUTO_OPEN_ON_BLUETOOTH = "auto_open_on_bluetooth"
         private const val CHARGE_BLUETOOTH_PLAY = "charge_bluetooth_play"
         private const val CHARGE_BLUETOOTH_DEVICES = "charge_bluetooth_devices"
+        private const val UPDATE_PREFERENCES = "update_state"
+        private const val LAST_UPDATE_CHECK_KEY = "last_check_ms"
+        private const val UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000L
 
         private val foregroundActivityLock = Any()
         @Volatile

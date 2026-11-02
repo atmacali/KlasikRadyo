@@ -9,7 +9,7 @@ on:
       - atmacali-patch-1
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
@@ -40,3 +40,24 @@ jobs:
           name: app-debug
           path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
+
+      # The phone app reads the newest release; its tag must stay "build-<versionCode>",
+      # and versionCode must match app/build.gradle.kts (GITHUB_RUN_NUMBER + 2).
+      - name: Publish APK to GitHub Release
+        if: github.ref_name == 'main' || github.ref_name == 'master'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          CODE=$((GITHUB_RUN_NUMBER + 2))
+          TAG="build-${CODE}"
+          APK="RetroRadyo-${CODE}.apk"
+          cp app/build/outputs/apk/debug/*.apk "$APK"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$APK" --clobber
+          else
+            gh release create "$TAG" "$APK" \
+              --target "$GITHUB_SHA" \
+              --title "RetroRadyo build ${CODE}" \
+              --notes "Automatic build from commit ${GITHUB_SHA}" \
+              --latest
+          fi

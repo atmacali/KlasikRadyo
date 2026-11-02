@@ -53,18 +53,90 @@ class PlaybackService : MediaSessionService() {
             intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE)
         }
         if (intent.action == BluetoothDevice.ACTION_ACL_DISCONNECTED) {
-            device?.address?.let { connectedBluetoothAddresses.remove(it) }
+            device?.address?.let { address ->
+                connectedBluetoothAddresses.remove(address)
+                if (bluetoothAutoPlayDevices.remove(address)) stopPlayback()
+                stopIfChargeBluetoothLost(excludedAddress = address)
+            }
             return
         }
         if (intent.action == BluetoothDevice.ACTION_ACL_CONNECTED) {
-            device?.address?.let { connectedBluetoothAddresses.add(it) }
-            if (isBluetoothAutoPlayEnabled()) resumeLastStation()
+            val address = device?.address
+            address?.let { connectedBluetoothAddresses.add(it) }
+            if (isBluetoothAutoPlayEnabled() && BluetoothDeviceFilter.isEligible(context, device)) {
+                address?.let { bluetoothAutoPlayDevices.add(it) }
+                resumeLastStation()
+                scheduleAutoPlayRetries {
+                    isBluetoothAutoPlayEnabled() && (address == null || address in connectedBluetoothAddresses)
+                }
+            }
             maybeAutoPlayForChargeAndBluetooth()
-            
-            if (isBluetoothAutoOpenEnabled()) ScreensaverLauncher.launch(context.applicationContext)
+
+            if (isBluetoothAutoOpenEnabled() && BluetoothDeviceFilter.isEligible(context, device)) {
+                ScreensaverLauncher.launch(context.applicationContext)
+            }
         }
     }
 }
+    private val bluetoothAutoPlayDevices = mutableSetOf<String>()
+    private var chargeBluetoothActive = false
+    private var retryAttempt = 0
+    private var retryCondition: (() -> Boolean)? = null
+    private val retryRunnable = Runnable {
+        val condition = retryCondition ?: return@Runnable
+        val player = mediaSession?.player
+        if (player == null || player.isPlaying || !condition()) {
+            retryCondition = null
+            return@Runnable
+        }
+        resumeLastStation()
+        retryAttempt++
+        if (retryAttempt < AUTO_PLAY_RETRY_DELAYS_MS.size) {
+            mainHandler.postDelayed(retryRunnable, AUTO_PLAY_RETRY_DELAYS_MS[retryAttempt])
+        } else {
+            retryCondition = null
+        }
+    }
+    private val chargeLossRunnable = Runnable {
+        if (!isPowerConnected()) {
+            isCharging = false
+            stopIfChargeBluetoothLost()
+        }
+    }
+
+    // Car head units set up A2DP seconds after ACL connects, so the first play() can be lost.
+    private fun scheduleAutoPlayRetries(condition: () -> Boolean) {
+        mainHandler.removeCallbacks(retryRunnable)
+        retryCondition = condition
+        retryAttempt = 0
+        mainHandler.postDelayed(retryRunnable, AUTO_PLAY_RETRY_DELAYS_MS[0])
+    }
+
+    private fun stopPlayback() {
+        mainHandler.removeCallbacks(retryRunnable)
+        retryCondition = null
+        mediaSession?.player?.let {
+            it.stop()
+            updateMonitorNotification(isPlaying = false)
+        }
+    }
+
+    private fun chargeBluetoothConditionMet(excludedAddress: String? = null): Boolean {
+        if (!isChargeBluetoothPlayEnabled() || !isCharging) return false
+        val selected = getSharedPreferences(AUTOMATION_PREFERENCES, MODE_PRIVATE)
+            .getStringSet(CHARGE_BLUETOOTH_DEVICES, emptySet()).orEmpty()
+        val connected = currentlyConnectedBluetoothAddresses()
+            .filterNot { it.equals(excludedAddress, ignoreCase = true) }
+        return selected.any { saved -> connected.any { it.equals(saved, ignoreCase = true) } }
+    }
+
+    // The charge + Bluetooth rule requires both conditions; losing either one ends playback it started.
+    private fun stopIfChargeBluetoothLost(excludedAddress: String? = null) {
+        if (!chargeBluetoothActive) return
+        if (chargeBluetoothConditionMet(excludedAddress)) return
+        chargeBluetoothActive = false
+        stopPlayback()
+    }
     private val playerListener = object : Player.Listener {
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
             mediaItem?.mediaId?.let { stationId ->
@@ -223,12 +295,16 @@ class PlaybackService : MediaSessionService() {
 
     internal fun onPowerConnected() {
         isCharging = true
+        mainHandler.removeCallbacks(chargeLossRunnable)
         maybeAutoPlayForChargeAndBluetooth()
         updateMonitorNotification(mediaSession?.player?.isPlaying == true)
     }
 
     internal fun onPowerDisconnected() {
         isCharging = false
+        // Car USB power can flicker briefly (ignition/cranking), so confirm the loss before stopping.
+        mainHandler.removeCallbacks(chargeLossRunnable)
+        if (chargeBluetoothActive) mainHandler.postDelayed(chargeLossRunnable, CHARGE_LOSS_GRACE_MS)
         updateMonitorNotification(isPlaying = mediaSession?.player?.isPlaying == true)
     }
 
@@ -266,14 +342,10 @@ class PlaybackService : MediaSessionService() {
 
     // Plays only while charging and connected to one of the user-selected devices.
     private fun maybeAutoPlayForChargeAndBluetooth() {
-        if (!isChargeBluetoothPlayEnabled() || !isCharging) return
-        val selected = getSharedPreferences(AUTOMATION_PREFERENCES, MODE_PRIVATE)
-            .getStringSet(CHARGE_BLUETOOTH_DEVICES, emptySet()).orEmpty()
-        if (selected.isEmpty()) return
-        val connected = currentlyConnectedBluetoothAddresses()
-        if (selected.any { saved -> connected.any { it.equals(saved, ignoreCase = true) } }) {
-            resumeLastStation()
-        }
+        if (!chargeBluetoothConditionMet()) return
+        chargeBluetoothActive = true
+        resumeLastStation()
+        scheduleAutoPlayRetries { chargeBluetoothConditionMet() }
     }
 
     private fun refreshBluetoothReceiver() {
@@ -643,6 +715,8 @@ class PlaybackService : MediaSessionService() {
     }
 
     override fun onDestroy() {
+        mainHandler.removeCallbacks(retryRunnable)
+        mainHandler.removeCallbacks(chargeLossRunnable)
         if (bluetoothReceiverRegistered) {
             unregisterReceiver(bluetoothReceiver)
             bluetoothReceiverRegistered = false
@@ -665,6 +739,8 @@ class PlaybackService : MediaSessionService() {
     }
 
     private companion object {
+        val AUTO_PLAY_RETRY_DELAYS_MS = longArrayOf(2_000L, 4_000L, 6_000L)
+        const val CHARGE_LOSS_GRACE_MS = 4_000L
         const val PLAYBACK_PREFERENCES = "radio_playback"
         const val SELECTED_STATION_KEY = "selected_station_id"
         const val STATION_PLAYLIST_KEY = "station_playlist_json"
