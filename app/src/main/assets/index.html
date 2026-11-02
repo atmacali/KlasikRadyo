@@ -464,6 +464,10 @@
                             <span>Bluetooth bağlanınca arayüzü aç</span>
                             <input id="bluetoothOpenSetting" type="checkbox">
                         </label>
+                        <label class="setting-row" for="bluetoothPlayScreensaverSetting">
+                            <span>Bluetooth ile çalmaya başlayınca AMOLED ekranı aç, çalma durunca kapat</span>
+                            <input id="bluetoothPlayScreensaverSetting" type="checkbox">
+                        </label>
                         <label class="setting-row" for="ignoreNonAudioSetting">
                             <span>Hoparlörü olmayan cihazlar (saat, bileklik vb.) tetiklemesin</span>
                             <input id="ignoreNonAudioSetting" type="checkbox">
@@ -1264,6 +1268,11 @@
 
         const autoOpenBluetoothEl = document.getElementById('bluetoothOpenSetting');
         if (autoOpenBluetoothEl) autoOpenBluetoothEl.checked = Boolean(autoOpenBluetooth);
+
+        const playScreensaverEl = document.getElementById('bluetoothPlayScreensaverSetting');
+        if (playScreensaverEl && window.AndroidBridge?.getBluetoothPlayScreensaverEnabled) {
+            playScreensaverEl.checked = Boolean(window.AndroidBridge.getBluetoothPlayScreensaverEnabled());
+        }
     }
 
     function renderDeviceCheckboxes(box, summary, baseTitle, devices, isChecked, label, onSave) {
@@ -1471,6 +1480,15 @@
                 if (bridge.setAutoOpenOnBluetoothEnabled) {
                     const applied = bridge.setAutoOpenOnBluetoothEnabled(event.target.checked);
                     if (!applied) event.target.checked = bridge.getAutoOpenOnBluetoothEnabled();
+                }
+            });
+        }
+        const bluetoothPlayScreensaverSetting = document.getElementById('bluetoothPlayScreensaverSetting');
+        if (bluetoothPlayScreensaverSetting) {
+            bluetoothPlayScreensaverSetting.addEventListener('change', event => {
+                if (bridge.setBluetoothPlayScreensaverEnabled) {
+                    const applied = bridge.setBluetoothPlayScreensaverEnabled(event.target.checked);
+                    if (!applied) event.target.checked = bridge.getBluetoothPlayScreensaverEnabled();
                 }
             });
         }
