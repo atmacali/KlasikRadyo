@@ -249,13 +249,6 @@ override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out
         }
     }
 
-    // Sends the app behind whatever was showing before (other app, home, lock screen); a screen
-    // that was off falls back to its normal timeout once the keep-awake flags are cleared.
-    private fun restorePreviousScreen() {
-        window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        moveTaskToBack(true)
-    }
-
     private fun handleOpenScreensaver() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
             setShowWhenLocked(true)
@@ -1079,18 +1072,18 @@ fun getAutoStartOnBootEnabled(): Boolean = getAutomationPreference(AUTO_START_ON
             return true
         }
 
-        fun dispatchScreensaverOff(returnToPrevious: Boolean = false, lockScreen: Boolean = false) {
+        // Locks the screen when playback ends, unless the user already took over the app.
+        fun dispatchScreensaverOff() {
             val activity = synchronized(foregroundActivityLock) { foregroundActivity } ?: return
             if (activity.isFinishing || activity.isDestroyed) return
             activity.runOnUiThread {
                 if (activity.isFinishing || activity.isDestroyed || !activity.pageReady) return@runOnUiThread
-                // Only hands the screen back if AMOLED mode is still showing, i.e. the user did not take over.
                 activity.webView.evaluateJavascript(
                     "(function(){var was=typeof screensaverActive!=='undefined'&&screensaverActive;toggleScreensaver(false);return was;})()"
                 ) { result ->
-                    if (returnToPrevious && result == "true") {
-                        activity.restorePreviousScreen()
-                        if (lockScreen) ScreenLockService.lockNow()
+                    if (result == "true") {
+                        activity.window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                        ScreenLockService.lockNow()
                     }
                 }
             }
