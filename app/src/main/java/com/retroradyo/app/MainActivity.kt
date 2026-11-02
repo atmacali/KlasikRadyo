@@ -722,10 +722,10 @@ fun getAutoStartOnBootEnabled(): Boolean = getAutomationPreference(AUTO_START_ON
             refreshBluetoothMonitor()
             if (enabled) {
                 requestLaunchPermission()
-                if (!ScreenLockAdminReceiver.isActive(this@MainActivity)) {
+                if (!ScreenLockService.isEnabled(this@MainActivity)) {
                     runOnUiThread {
                         try {
-                            startActivity(ScreenLockAdminReceiver.enableIntent(this@MainActivity))
+                            startActivity(ScreenLockService.settingsIntent())
                         } catch (e: Exception) {
                             e.printStackTrace()
                         }
@@ -1087,7 +1087,7 @@ fun getAutoStartOnBootEnabled(): Boolean = getAutomationPreference(AUTO_START_ON
                 ) { result ->
                     if (returnToPrevious && result == "true") {
                         activity.restorePreviousScreen()
-                        if (lockScreen) ScreenLockAdminReceiver.lockNow(activity)
+                        if (lockScreen) ScreenLockService.lockNow()
                     }
                 }
             }
