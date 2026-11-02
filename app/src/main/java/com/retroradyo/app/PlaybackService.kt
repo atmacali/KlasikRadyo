@@ -82,7 +82,7 @@ class PlaybackService : MediaSessionService() {
     private var chargeBluetoothActive = false
     private var retryAttempt = 0
     private var retryCondition: (() -> Boolean)? = null
-    private val retryRunnable = Runnable {
+    private val retryRunnable: Runnable = Runnable {
         val condition = retryCondition ?: return@Runnable
         val player = mediaSession?.player
         if (player == null || player.isPlaying || !condition()) {
