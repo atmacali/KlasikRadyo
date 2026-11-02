@@ -253,11 +253,14 @@ override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out
     // that was off falls back to its normal timeout once the keep-awake flags are cleared.
     private fun restorePreviousScreen() {
         window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) setTurnScreenOn(false)
         moveTaskToBack(true)
     }
 
     private fun handleOpenScreensaver() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+            setShowWhenLocked(true)
+            setTurnScreenOn(true)
+        }
         window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         dismissKeyguardIfPossible()
         pendingPowerAction = SCREENSAVER_ON_SCRIPT
