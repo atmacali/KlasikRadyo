@@ -4,3 +4,4 @@
 2026-10-29T20:17:50.537Z	İstanbul fm	https://live.radyofenomen.com/istanbulfm/128/playlist.m3u8
 2026-10-30T05:55:39.496Z	Kaf	https://moondigitalmaster.radyotvonline.net/kafaradyo/playlist.m3u8
 2026-10-30T06:54:56.869Z	Radyo D	https://radyo.duhnet.tv/radyod
+2026-11-02T06:48:13.798Z	Pal FM	https://ssl4.radyotvonline.com/radyohome/palfmhome.stream/playlist.m3u8
