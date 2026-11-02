@@ -6,4 +6,6 @@
     <string name="monitor_notification_screensaver">Şarj bağlı; ekran koruyucu için dokunun.</string>
     <string name="monitor_notification_charge_disabled">Şarj bağlı; otomatik radyo başlatma kapalı.</string>
     <string name="monitor_notification_playing">Radyo çalıyor; açmak için dokunun.</string>
+    <string name="lock_service_label">RetroRadyo ekran kilidi</string>
+    <string name="lock_service_description">Bluetooth ile çalma bitince ekranı güç tuşu gibi kilitler. Ekrandaki içeriği okumaz.</string>
 </resources>
