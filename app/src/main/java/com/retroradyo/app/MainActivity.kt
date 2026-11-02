@@ -623,7 +623,7 @@ fun setChargeBluetoothDevices(addressesJson: String) {
 fun getBluetoothExclusionsJson(): String {
     val result = org.json.JSONArray()
     if (!hasBluetoothConnectPermission()) return result.toString()
-    val excluded = BluetoothDeviceFilter.excludedAddresses(this)
+    val excluded = BluetoothDeviceFilter.excludedAddresses(this@MainActivity)
     try {
         getSystemService(android.bluetooth.BluetoothManager::class.java)
             ?.adapter?.bondedDevices?.sortedBy { it.name ?: it.address }?.forEach { device ->
@@ -650,7 +650,7 @@ fun setBluetoothExcludedDevices(addressesJson: String) {
 }
 
 @JavascriptInterface
-fun getIgnoreNonAudioBluetooth(): Boolean = BluetoothDeviceFilter.ignoreNonAudio(this)
+fun getIgnoreNonAudioBluetooth(): Boolean = BluetoothDeviceFilter.ignoreNonAudio(this@MainActivity)
 
 @JavascriptInterface
 fun setIgnoreNonAudioBluetooth(enabled: Boolean) {
