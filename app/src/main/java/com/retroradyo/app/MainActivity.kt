@@ -260,10 +260,12 @@ override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out
         runPendingPowerAction()
     }
 
-    // Only removes a non-secure (swipe) lock screen; a PIN/pattern is never bypassed.
+    // Only removes a non-secure (swipe) lock screen. On a PIN/pattern/fingerprint lock it must not be
+    // called at all: requestDismissKeyguard would show the credential prompt instead of the AMOLED screen.
     private fun dismissKeyguardIfPossible() {
-        getSystemService(android.app.KeyguardManager::class.java)
-            ?.requestDismissKeyguard(this, null)
+        val keyguard = getSystemService(android.app.KeyguardManager::class.java) ?: return
+        if (keyguard.isKeyguardSecure) return
+        keyguard.requestDismissKeyguard(this, null)
     }
 
     @Volatile
@@ -1083,6 +1085,8 @@ fun getAutoStartOnBootEnabled(): Boolean = getAutomationPreference(AUTO_START_ON
                 ) { result ->
                     if (result == "true") {
                         activity.window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                        // Back to the previous screen even if the lock action is unavailable.
+                        activity.moveTaskToBack(true)
                         ScreenLockService.lockNow()
                     }
                 }
