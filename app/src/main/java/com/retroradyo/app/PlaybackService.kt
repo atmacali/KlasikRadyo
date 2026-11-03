@@ -88,12 +88,14 @@ class PlaybackService : MediaSessionService() {
     private val eligibleBluetoothAddresses = mutableSetOf<String>()
     private var screensaverOpenedByPlayback = false
     private val screensaverCloseRunnable: Runnable = Runnable {
-        if (screensaverOpenedByPlayback && (closeScreensaverAfterBluetoothLoss || mediaSession?.player?.isPlaying != true)) {
+        if (shouldCloseScreensaver() && (closeScreensaverAfterBluetoothLoss || mediaSession?.player?.isPlaying != true)) {
             screensaverOpenedByPlayback = false
             closeScreensaverAfterBluetoothLoss = false
             MainActivity.dispatchScreensaverOff()
         }
     }
+
+    private fun shouldCloseScreensaver(): Boolean = screensaverOpenedByPlayback || isCarModeEnabled()
 
     // Opens AMOLED mode when playback starts over an eligible Bluetooth device and locks the
     // screen (after a short debounce for rebuffering) when playback stops.
@@ -110,7 +112,7 @@ class PlaybackService : MediaSessionService() {
             startScreensaverRepeat()
         } else {
             mainHandler.removeCallbacks(screensaverRepeatRunnable)
-            if (screensaverOpenedByPlayback) {
+            if (shouldCloseScreensaver()) {
                 mainHandler.postDelayed(screensaverCloseRunnable, SCREENSAVER_CLOSE_DELAY_MS)
             }
         }
@@ -822,6 +824,10 @@ class PlaybackService : MediaSessionService() {
         mainHandler.removeCallbacks(chargeLossRunnable)
         mainHandler.removeCallbacks(screensaverCloseRunnable)
         mainHandler.removeCallbacks(screensaverRepeatRunnable)
+        if (shouldCloseScreensaver()) {
+            screensaverOpenedByPlayback = false
+            MainActivity.dispatchScreensaverOff()
+        }
         if (bluetoothReceiverRegistered) {
             unregisterReceiver(bluetoothReceiver)
             bluetoothReceiverRegistered = false
