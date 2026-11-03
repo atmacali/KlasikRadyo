@@ -100,7 +100,10 @@ class PlaybackService : MediaSessionService() {
     private fun handleScreensaverForPlayback(isPlaying: Boolean) {
         mainHandler.removeCallbacks(screensaverCloseRunnable)
         if (isPlaying) {
-            if (isBluetoothPlayScreensaverEnabled() && !screensaverOpenedByPlayback && hasEligibleBluetoothConnection()) {
+            val repeating = shouldRepeatScreensaver()
+            if (repeating ||
+                (isBluetoothPlayScreensaverEnabled() && !screensaverOpenedByPlayback && hasEligibleBluetoothConnection())
+            ) {
                 screensaverOpenedByPlayback = true
                 ScreensaverLauncher.launch(applicationContext)
             }
@@ -116,17 +119,20 @@ class PlaybackService : MediaSessionService() {
     // While charging and connected to a selected device, brings AMOLED mode back periodically
     // so it returns even after the user left it to use the phone.
     private val screensaverRepeatRunnable: Runnable = Runnable {
-        if (!isChargeBluetoothScreensaverRepeatEnabled() || !chargeBluetoothConditionMet() ||
-            mediaSession?.player?.isPlaying != true
-        ) return@Runnable
+        if (!shouldRepeatScreensaver() || mediaSession?.player?.isPlaying != true) return@Runnable
         screensaverOpenedByPlayback = true
         ScreensaverLauncher.launch(applicationContext)
         mainHandler.postDelayed(screensaverRepeatRunnable, SCREENSAVER_REPEAT_MS)
     }
 
+    private fun shouldRepeatScreensaver(): Boolean =
+        isCarModeEnabled() || (isChargeBluetoothScreensaverRepeatEnabled() && chargeBluetoothConditionMet())
+
+    private fun isCarModeEnabled(): Boolean = getAutomationPreference(CAR_MODE, false)
+
     private fun startScreensaverRepeat() {
         mainHandler.removeCallbacks(screensaverRepeatRunnable)
-        if (isChargeBluetoothScreensaverRepeatEnabled() && chargeBluetoothConditionMet()) {
+        if (shouldRepeatScreensaver()) {
             mainHandler.postDelayed(screensaverRepeatRunnable, SCREENSAVER_REPEAT_MS)
         }
     }
@@ -862,6 +868,7 @@ class PlaybackService : MediaSessionService() {
         const val AUTO_OPEN_ON_BLUETOOTH = "auto_open_on_bluetooth"
         const val BLUETOOTH_PLAY_SCREENSAVER = "bluetooth_play_screensaver"
         const val CHARGE_BLUETOOTH_SCREENSAVER_REPEAT = "charge_bluetooth_screensaver_repeat"
+        const val CAR_MODE = "car_mode"
         const val SCREENSAVER_REPEAT_MS = 60 * 1000L
         const val STALE_PAUSE_MS = 15_000L
         const val SCREENSAVER_CLOSE_DELAY_MS = 3_000L

@@ -110,6 +110,8 @@
         .knob-hint { margin-top: 4px; color: #aaa; font-size: 10px; letter-spacing: 1px; }
         .gesture-hint { margin-top: 12px; color: #888; font-size: 11px; }
         .screensaver-toggle { width: 100%; margin: 0 0 25px; }
+        .car-mode-toggle { width: 100%; margin: -13px 0 25px; padding: 8px; font-size: 0.8rem; }
+        .car-mode-toggle[aria-pressed="true"] { background: #fff; color: #000; }
         .settings-menu {
             margin: 0 0 24px;
             border: 1px solid #2d2d2d;
@@ -304,6 +306,7 @@
         .screensaver .status,
         .screensaver .gesture-hint,
         .screensaver .screensaver-toggle,
+        .screensaver .car-mode-toggle,
         .screensaver .section-title,
         .screensaver .station-list,
         .screensaver .archived-stations,
@@ -423,6 +426,7 @@
             </div>
         </section>
         <button class="btn screensaver-toggle" id="screensaverToggle" type="button" onclick="toggleScreensaver(true)">AMOLED EKRAN KORUYUCU</button>
+        <button class="btn car-mode-toggle" id="carModeToggle" type="button" aria-pressed="false">ARAÇ MODU · KAPALI</button>
         <h1 class="section-title">İSTASYONLAR</h1>
         <div class="station-list" id="stationList"></div>
         <details class="archived-stations" id="archivedStationsSection">
@@ -1254,7 +1258,15 @@
             volume = gainToVolume(savedVolume);
             updateDisplay();
         }
+        function renderCarMode(on) {
+            const btn = document.getElementById('carModeToggle');
+            if (!btn) return;
+            btn.setAttribute('aria-pressed', String(on));
+            btn.textContent = on ? 'ARAÇ MODU · AÇIK' : 'ARAÇ MODU · KAPALI';
+        }
+
         function applyAutomationSettingsFromNative(autoStartOnCharge, stopOnUnplug, bluetoothAutoPlay, chargeScreensaver, keepScreenOnAlways, stopOnlyOnUnplug, autoStartOnBoot, autoOpenBluetooth, chargeBluetooth) {
+         if (window.AndroidBridge?.getCarMode) renderCarMode(Boolean(window.AndroidBridge.getCarMode()));
         const chargeBluetoothEl = document.getElementById('chargeBluetoothSetting');
         if (chargeBluetoothEl) chargeBluetoothEl.checked = Boolean(chargeBluetooth);
         renderChargeBluetoothDevices();
@@ -1490,6 +1502,14 @@
                     const applied = bridge.setAutoOpenOnBluetoothEnabled(event.target.checked);
                     if (!applied) event.target.checked = bridge.getAutoOpenOnBluetoothEnabled();
                 }
+            });
+        }
+        const carModeToggle = document.getElementById('carModeToggle');
+        if (carModeToggle) {
+            carModeToggle.addEventListener('click', () => {
+                const next = carModeToggle.getAttribute('aria-pressed') !== 'true';
+                bridge.setCarMode?.(next);
+                renderCarMode(next);
             });
         }
         const chargeBluetoothRepeatSetting = document.getElementById('chargeBluetoothRepeatSetting');
