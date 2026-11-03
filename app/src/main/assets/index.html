@@ -484,6 +484,10 @@
                             <summary id="chargeBluetoothSummary">Seçili cihazlar</summary>
                             <div class="device-list" id="chargeBluetoothDevices"></div>
                         </details>
+                        <label class="setting-row" for="chargeBluetoothRepeatSetting">
+                            <span>Şarj + seçili cihaz: çalarken AMOLED ekranı 60 saniyede bir tekrar aç</span>
+                            <input id="chargeBluetoothRepeatSetting" type="checkbox">
+                        </label>
                     </div>
                 </details>
                 <details class="settings-group">
@@ -1269,6 +1273,11 @@
         const autoOpenBluetoothEl = document.getElementById('bluetoothOpenSetting');
         if (autoOpenBluetoothEl) autoOpenBluetoothEl.checked = Boolean(autoOpenBluetooth);
 
+        const repeatEl = document.getElementById('chargeBluetoothRepeatSetting');
+        if (repeatEl && window.AndroidBridge?.getChargeBluetoothScreensaverRepeat) {
+            repeatEl.checked = Boolean(window.AndroidBridge.getChargeBluetoothScreensaverRepeat());
+        }
+
         const playScreensaverEl = document.getElementById('bluetoothPlayScreensaverSetting');
         if (playScreensaverEl && window.AndroidBridge?.getBluetoothPlayScreensaverEnabled) {
             playScreensaverEl.checked = Boolean(window.AndroidBridge.getBluetoothPlayScreensaverEnabled());
@@ -1481,6 +1490,12 @@
                     const applied = bridge.setAutoOpenOnBluetoothEnabled(event.target.checked);
                     if (!applied) event.target.checked = bridge.getAutoOpenOnBluetoothEnabled();
                 }
+            });
+        }
+        const chargeBluetoothRepeatSetting = document.getElementById('chargeBluetoothRepeatSetting');
+        if (chargeBluetoothRepeatSetting) {
+            chargeBluetoothRepeatSetting.addEventListener('change', event => {
+                bridge.setChargeBluetoothScreensaverRepeat?.(event.target.checked);
             });
         }
         const bluetoothPlayScreensaverSetting = document.getElementById('bluetoothPlayScreensaverSetting');

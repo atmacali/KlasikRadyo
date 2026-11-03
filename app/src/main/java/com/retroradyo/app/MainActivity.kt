@@ -706,6 +706,16 @@ fun getAutoStartOnBootEnabled(): Boolean = getAutomationPreference(AUTO_START_ON
     }
 
         @JavascriptInterface
+        fun getChargeBluetoothScreensaverRepeat(): Boolean =
+            getAutomationPreference(CHARGE_BLUETOOTH_SCREENSAVER_REPEAT, false)
+
+        @JavascriptInterface
+        fun setChargeBluetoothScreensaverRepeat(enabled: Boolean) {
+            setAutomationPreference(CHARGE_BLUETOOTH_SCREENSAVER_REPEAT, enabled)
+            if (enabled) requestLaunchPermission()
+        }
+
+        @JavascriptInterface
         fun getBluetoothPlayScreensaverEnabled(): Boolean =
             getAutomationPreference(BLUETOOTH_PLAY_SCREENSAVER, false) && hasBluetoothConnectPermission()
 
@@ -1030,6 +1040,7 @@ fun getAutoStartOnBootEnabled(): Boolean = getAutomationPreference(AUTO_START_ON
         private const val AUTO_START_ON_BOOT = "auto_start_on_boot"
         private const val AUTO_OPEN_ON_BLUETOOTH = "auto_open_on_bluetooth"
         private const val BLUETOOTH_PLAY_SCREENSAVER = "bluetooth_play_screensaver"
+        private const val CHARGE_BLUETOOTH_SCREENSAVER_REPEAT = "charge_bluetooth_screensaver_repeat"
         private const val CHARGE_BLUETOOTH_PLAY = "charge_bluetooth_play"
         private const val CHARGE_BLUETOOTH_DEVICES = "charge_bluetooth_devices"
         private const val UPDATE_PREFERENCES = "update_state"
