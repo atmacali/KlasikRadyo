@@ -56,6 +56,7 @@ class PlaybackService : MediaSessionService() {
             device?.address?.let { address ->
                 connectedBluetoothAddresses.remove(address)
                 eligibleBluetoothAddresses.remove(address)
+                endScreensaverIfNoBluetooth()
                 if (bluetoothAutoPlayDevices.remove(address)) stopPlayback()
                 stopIfChargeBluetoothLost(excludedAddress = address)
             }
@@ -64,6 +65,7 @@ class PlaybackService : MediaSessionService() {
         if (intent.action == BluetoothDevice.ACTION_ACL_CONNECTED) {
             val address = device?.address
             address?.let { connectedBluetoothAddresses.add(it) }
+            closeScreensaverAfterBluetoothLoss = false
             if (address != null && BluetoothDeviceFilter.isEligible(context, device)) {
                 eligibleBluetoothAddresses.add(address)
             }
@@ -86,8 +88,9 @@ class PlaybackService : MediaSessionService() {
     private val eligibleBluetoothAddresses = mutableSetOf<String>()
     private var screensaverOpenedByPlayback = false
     private val screensaverCloseRunnable: Runnable = Runnable {
-        if (screensaverOpenedByPlayback && mediaSession?.player?.isPlaying != true) {
+        if (screensaverOpenedByPlayback && (closeScreensaverAfterBluetoothLoss || mediaSession?.player?.isPlaying != true)) {
             screensaverOpenedByPlayback = false
+            closeScreensaverAfterBluetoothLoss = false
             MainActivity.dispatchScreensaverOff()
         }
     }
@@ -95,17 +98,51 @@ class PlaybackService : MediaSessionService() {
     // Opens AMOLED mode when playback starts over an eligible Bluetooth device and locks the
     // screen (after a short debounce for rebuffering) when playback stops.
     private fun handleScreensaverForPlayback(isPlaying: Boolean) {
-        if (!isBluetoothPlayScreensaverEnabled()) return
         mainHandler.removeCallbacks(screensaverCloseRunnable)
         if (isPlaying) {
-            if (!screensaverOpenedByPlayback && hasEligibleBluetoothConnection()) {
+            if (isBluetoothPlayScreensaverEnabled() && !screensaverOpenedByPlayback && hasEligibleBluetoothConnection()) {
                 screensaverOpenedByPlayback = true
                 ScreensaverLauncher.launch(applicationContext)
             }
-        } else if (screensaverOpenedByPlayback) {
-            mainHandler.postDelayed(screensaverCloseRunnable, SCREENSAVER_CLOSE_DELAY_MS)
+            startScreensaverRepeat()
+        } else {
+            mainHandler.removeCallbacks(screensaverRepeatRunnable)
+            if (screensaverOpenedByPlayback) {
+                mainHandler.postDelayed(screensaverCloseRunnable, SCREENSAVER_CLOSE_DELAY_MS)
+            }
         }
     }
+
+    // While charging and connected to a selected device, brings AMOLED mode back periodically
+    // so it returns even after the user left it to use the phone.
+    private val screensaverRepeatRunnable: Runnable = Runnable {
+        if (!isChargeBluetoothScreensaverRepeatEnabled() || !chargeBluetoothConditionMet() ||
+            mediaSession?.player?.isPlaying != true
+        ) return@Runnable
+        screensaverOpenedByPlayback = true
+        ScreensaverLauncher.launch(applicationContext)
+        mainHandler.postDelayed(screensaverRepeatRunnable, SCREENSAVER_REPEAT_MS)
+    }
+
+    private fun startScreensaverRepeat() {
+        mainHandler.removeCallbacks(screensaverRepeatRunnable)
+        if (isChargeBluetoothScreensaverRepeatEnabled() && chargeBluetoothConditionMet()) {
+            mainHandler.postDelayed(screensaverRepeatRunnable, SCREENSAVER_REPEAT_MS)
+        }
+    }
+
+    private fun isChargeBluetoothScreensaverRepeatEnabled(): Boolean =
+        getAutomationPreference(CHARGE_BLUETOOTH_SCREENSAVER_REPEAT, false)
+
+    // The Bluetooth condition itself is gone: end AMOLED mode and lock even if the music keeps playing.
+    private fun endScreensaverIfNoBluetooth() {
+        if (eligibleBluetoothAddresses.isNotEmpty() || !screensaverOpenedByPlayback) return
+        mainHandler.removeCallbacks(screensaverRepeatRunnable)
+        mainHandler.removeCallbacks(screensaverCloseRunnable)
+        mainHandler.postDelayed(screensaverCloseRunnable, SCREENSAVER_CLOSE_DELAY_MS)
+        closeScreensaverAfterBluetoothLoss = true
+    }
+    private var closeScreensaverAfterBluetoothLoss = false
 
     private fun hasEligibleBluetoothConnection(): Boolean {
         if (eligibleBluetoothAddresses.isNotEmpty()) return true
@@ -201,6 +238,25 @@ class PlaybackService : MediaSessionService() {
                 submitCurrentStationIfPending()
             }
             updateMonitorNotification(mediaSession?.player?.isPlaying == true)
+        }
+
+        // A live radio paused for a while (phone call, focus loss) would otherwise resume from old buffered audio.
+        private var pausedAtMs = 0L
+
+        override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
+            val player = mediaSession?.player ?: return
+            if (!playWhenReady) {
+                pausedAtMs = android.os.SystemClock.elapsedRealtime()
+            } else if (pausedAtMs != 0L) {
+                val pausedFor = android.os.SystemClock.elapsedRealtime() - pausedAtMs
+                pausedAtMs = 0L
+                if (pausedFor > STALE_PAUSE_MS) {
+                    mainHandler.post {
+                        player.stop()
+                        player.prepare()
+                    }
+                }
+            }
         }
 
         override fun onIsPlayingChanged(isPlaying: Boolean) {
@@ -759,6 +815,7 @@ class PlaybackService : MediaSessionService() {
         mainHandler.removeCallbacks(retryRunnable)
         mainHandler.removeCallbacks(chargeLossRunnable)
         mainHandler.removeCallbacks(screensaverCloseRunnable)
+        mainHandler.removeCallbacks(screensaverRepeatRunnable)
         if (bluetoothReceiverRegistered) {
             unregisterReceiver(bluetoothReceiver)
             bluetoothReceiverRegistered = false
@@ -804,6 +861,9 @@ class PlaybackService : MediaSessionService() {
         const val AUTO_PLAY_ON_BLUETOOTH = "auto_play_on_bluetooth"
         const val AUTO_OPEN_ON_BLUETOOTH = "auto_open_on_bluetooth"
         const val BLUETOOTH_PLAY_SCREENSAVER = "bluetooth_play_screensaver"
+        const val CHARGE_BLUETOOTH_SCREENSAVER_REPEAT = "charge_bluetooth_screensaver_repeat"
+        const val SCREENSAVER_REPEAT_MS = 60 * 1000L
+        const val STALE_PAUSE_MS = 15_000L
         const val SCREENSAVER_CLOSE_DELAY_MS = 3_000L
         const val CHARGE_BLUETOOTH_PLAY = "charge_bluetooth_play"
         const val CHARGE_BLUETOOTH_DEVICES = "charge_bluetooth_devices"
